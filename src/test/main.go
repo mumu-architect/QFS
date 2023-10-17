@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cornelk/hashmap"
+	"moniter/config"
 	"strconv"
 	"sync"
 	"time"
@@ -34,6 +35,9 @@ type Person struct {
 }
 
 func main() {
+	//读取yml
+	config.GetConfig("../moniter/config/MoniterConfig.yaml")
+
 	// 创建一个Person对象
 	person := Person{
 		Name: "John",

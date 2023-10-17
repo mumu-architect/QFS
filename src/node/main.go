@@ -3,24 +3,21 @@ package main
 import (
 	"fmt"
 	"net"
+	"node/server"
 	"time"
 )
 
 func main() {
-
-	nodes := []Node{
-		{address: "127.0.0.1", port: 8081}, // 替换为你的节点地址和端口
-	}
-	sendHeartbeats(nodes)
-}
-
-type Node struct {
-	address string
-	port    uint32
+	//监控监控服务器数据服务
+	go server.MoniterServer()
+	//nodes := []MoniterNodeAddr{
+	//	{address: "127.0.0.1", port: 8081}, // 替换为你的节点地址和端口
+	//}
+	sendHeartbeats()
 }
 
 // 发送心跳包给指定的节点
-func sendHeartbeat(ip string, port uint32) {
+func sendHeartbeat(ip string, port uint32) bool {
 	// 目标IP和端口
 	remoteAddress := fmt.Sprintf("%s:%d", ip, port)
 
@@ -39,7 +36,7 @@ func sendHeartbeat(ip string, port uint32) {
 
 	if err != nil {
 		fmt.Printf("无法连接到 %s：%d %s\n", ip, port, err)
-		return
+		return false
 	}
 	// 关闭连接
 	defer conn.Close()
@@ -50,22 +47,13 @@ func sendHeartbeat(ip string, port uint32) {
 	_, err = conn.Write([]byte("心跳包" + localAddr))
 	if err != nil {
 		fmt.Printf("无法发送心跳包到 %s:%d %s\n", ip, port, err)
-		return
+		return false
 	}
 	fmt.Printf("发送心跳包到 %s:%d成功\n", ip, port)
-
+	return true
 }
 
 // 发送心跳包给指定的节点
-func sendHeartbeats(nodes []Node) {
-	for _, node := range nodes {
-		func(node Node) {
-			for i := 1; ; i++ {
-				fmt.Printf("%d", i)
-				sendHeartbeat(node.address, node.port)
-				// 等待一段时间再发送下一个心跳包
-				time.Sleep(time.Second)
-			}
-		}(node)
-	}
+func sendHeartbeats() {
+	server.SendHeartbeats(sendHeartbeat)
 }

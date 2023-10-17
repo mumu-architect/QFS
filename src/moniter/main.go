@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"moniter/server"
 	"net"
 	"strconv"
 	"strings"
@@ -10,9 +11,9 @@ import (
 
 func main() {
 	//监控节点数据服务
-	go MoniterServer()
+	go server.MoniterServer()
 	//ScanMoniter 扫描监控
-	ScanMoniter()
+	server.ScanMoniter()
 	// 监听心跳响应
 	receiveHeartbeat()
 
@@ -62,21 +63,20 @@ func receiveHeartbeat() chan Node {
 			if err != nil {
 				fmt.Println("Port conversion number error")
 			}
-			nodeHeartData := GetInstance()
+			nodeHeartData := server.GETNodeHeartInstance()
 			oldNodeData, isBool := nodeHeartData.GetNode(addrString)
-			fmt.Println(isBool)
+
 			if isBool == true {
 				oldNodeData.SetNewHeartTime(uint64(time.Now().UnixMicro()))
 				oldNodeData.SetWeight(16)
 				oldNodeData.SetAlive(true)
 				nodeHeartData.AddNode(addrString, oldNodeData)
 			} else {
-				nodeData := NewNodeData(addrInfo[0], uint32(port))
+				nodeData := server.NewNodeData(addrInfo[0], uint32(port))
 				nodeData.SetNewHeartTime(uint64(time.Now().UnixMicro()))
 				nodeHeartData.AddNode(addrString, nodeData)
 			}
 			fmt.Printf("[mumu]%+v\n", nodeHeartData)
-			fmt.Println(nodeHeartData.nodeMap.Len())
 
 			// 处理接收到的消息并打印出来
 			handleHeartbeat(conn)

@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"github.com/cornelk/hashmap"
@@ -10,16 +10,16 @@ type NodeHeartData struct {
 	nodeMap *hashmap.Map[string, NodeData]
 }
 
-var instance *NodeHeartData
-var once sync.Once
+var NodeHeartInstance *NodeHeartData
+var NodeHeartonce sync.Once
 
-func GetInstance() *NodeHeartData {
-	once.Do(func() {
-		instance = &NodeHeartData{
+func GETNodeHeartInstance() *NodeHeartData {
+	NodeHeartonce.Do(func() {
+		NodeHeartInstance = &NodeHeartData{
 			nodeMap: hashmap.New[string, NodeData](),
 		}
 	})
-	return instance
+	return NodeHeartInstance
 }
 
 // 判断节点是否存在

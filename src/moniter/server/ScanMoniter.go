@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ func ScanMoniter() {
 			// 例如，可以从文件、数据库或网络中读取数据，并进行处理
 			//time.Sleep(60 * time.Second)
 			fmt.Println("扫描监控数据")
-			nodeHeartData := GetInstance()
+			nodeHeartData := GETNodeHeartInstance()
 			nodeDataMap := nodeHeartData.nodeMap
 
 			nodeDataMap.Range(func(k string, v NodeData) bool {

@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -6,22 +6,21 @@ import (
 	"net/http"
 )
 
-func getNodeData(w http.ResponseWriter, r *http.Request) {
+func getMoniterData(w http.ResponseWriter, r *http.Request) {
 	//fmt.Fprintln(w, "Welcome to the main page!")
-	nodeHeartData := GetInstance()
-	nodeDataMap := nodeHeartData.nodeMap
-
-	//fmt.Fprintln(w, nodeDataMap.String())
-	var dataList []NodeData
-	nodeDataMap.Range(func(k string, v NodeData) bool {
+	//修改监控服务节点信息
+	moniterNodeData := GetMoniterNodeInstance()
+	//logger.Info.Println(moniterNodeData.moniterNodeMap.String())
+	nodeDataMap := moniterNodeData.moniterNodeMap
+	var dataList []MoniterNodeAddr
+	nodeDataMap.Range(func(k string, v MoniterNodeAddr) bool {
 		//addrString := k
+
 		nodeData := v
-		nodeData.NewHeartTime = nodeData.NewHeartTime / 1e6
 		dataList = append(dataList, nodeData)
 		return true
 	})
 	Success(w, dataList)
-
 }
 
 // Result json返回数据格式
@@ -66,6 +65,7 @@ func MoniterServer() {
 
 	// 注册处理函数，并监听端口
 	http.HandleFunc("/", handler)
-	http.HandleFunc("/node", getNodeData)
-	http.ListenAndServe(":8080", nil)
+	http.HandleFunc("/moniter", getMoniterData)
+
+	http.ListenAndServe(":9090", nil)
 }
