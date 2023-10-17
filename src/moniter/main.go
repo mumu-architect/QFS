@@ -3,9 +3,16 @@ package main
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func main() {
+	//监控节点数据服务
+	go MoniterServer()
+	//ScanMoniter 扫描监控
+	ScanMoniter()
 	// 监听心跳响应
 	receiveHeartbeat()
 
@@ -45,8 +52,31 @@ func receiveHeartbeat() chan Node {
 				fmt.Println("Failed to accept connection")
 				continue
 			}
-			defer conn.Close()
+			//defer conn.Close()
 			fmt.Println("Accepted connection from", conn.RemoteAddr().String())
+
+			//获取ip,端口
+			addrString := conn.RemoteAddr().String()
+			addrInfo := strings.Split(addrString, ":")
+			port, err := strconv.ParseUint(addrInfo[1], 10, 32)
+			if err != nil {
+				fmt.Println("Port conversion number error")
+			}
+			nodeHeartData := GetInstance()
+			oldNodeData, isBool := nodeHeartData.GetNode(addrString)
+			fmt.Println(isBool)
+			if isBool == true {
+				oldNodeData.SetNewHeartTime(uint64(time.Now().UnixMicro()))
+				oldNodeData.SetWeight(16)
+				oldNodeData.SetAlive(true)
+				nodeHeartData.AddNode(addrString, oldNodeData)
+			} else {
+				nodeData := NewNodeData(addrInfo[0], uint32(port))
+				nodeData.SetNewHeartTime(uint64(time.Now().UnixMicro()))
+				nodeHeartData.AddNode(addrString, nodeData)
+			}
+			fmt.Printf("[mumu]%+v\n", nodeHeartData)
+			fmt.Println(nodeHeartData.nodeMap.Len())
 
 			// 处理接收到的消息并打印出来
 			handleHeartbeat(conn)
@@ -65,7 +95,7 @@ func handleHeartbeat(conn net.Conn) {
 		// 读取数据
 		n, err := conn.Read(buffer)
 		if err != nil {
-			fmt.Println("Failed to read data")
+			fmt.Printf("Failed to read data: %s", err)
 			return
 		}
 		// 将读取到的数据转换为字符串并打印出来

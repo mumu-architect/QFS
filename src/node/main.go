@@ -23,10 +23,9 @@ type Node struct {
 func sendHeartbeat(ip string, port uint32) {
 	// 目标IP和端口
 	remoteAddress := fmt.Sprintf("%s:%d", ip, port)
-	//localPort := 9001
 
-	//便于调试
-	a := "127.0.0.1:0"
+	//便于调试,修改ip
+	a := "127.0.0.2:0"
 	b, err := net.ResolveTCPAddr("tcp", a)
 	d := &net.Dialer{
 		LocalAddr: b,
@@ -59,7 +58,6 @@ func sendHeartbeat(ip string, port uint32) {
 
 // 发送心跳包给指定的节点
 func sendHeartbeats(nodes []Node) {
-	fmt.Printf("333")
 	for _, node := range nodes {
 		func(node Node) {
 			for i := 1; ; i++ {
