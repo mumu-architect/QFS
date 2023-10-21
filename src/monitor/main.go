@@ -1,8 +1,8 @@
 package main
 
 import (
-	"Monitor/config"
 	"Monitor/server"
+	"common/config"
 	"common/function"
 	"fmt"
 	"net"
