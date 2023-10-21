@@ -1,0 +1,7 @@
+monitor:
+  MasterHostAddr: "192.168.1.4:1001"
+  HostPort: "1001"
+  HostAddr: "192.168.1.4:1001,192.168.1.4:1002,192.168.1.4:1003"
+  #同步监控node的数据端口
+  SynchronizeHostPort: "1005"
+  SynchronizeHostAddr: "192.168.1.4:1005,192.168.1.4:1005,192.168.1.4:1005"

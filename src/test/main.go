@@ -1,11 +1,11 @@
 package main
 
 import (
+	"Monitor/config"
 	"common/logger"
 	"encoding/json"
 	"fmt"
 	"github.com/cornelk/hashmap"
-	"moniter/config"
 	"strconv"
 	"sync"
 	"time"
@@ -36,7 +36,7 @@ type Person struct {
 
 func main() {
 	//读取yml
-	config.GetConfig("../moniter/config/MoniterConfig.yaml")
+	config.GetConfig("../Monitor/config/MonitorConfig.yaml")
 
 	// 创建一个Person对象
 	person := Person{

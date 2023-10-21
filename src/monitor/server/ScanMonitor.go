@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func ScanMoniter() {
+func ScanMonitor() {
 	// 创建一个每隔1秒触发一次的定时器
 	ticker := time.NewTicker(10 * time.Second)
 

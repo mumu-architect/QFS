@@ -56,7 +56,7 @@ func Error(w http.ResponseWriter, data any) {
 	jsonEncode(w, result)
 }
 
-func MoniterServer() {
+func MonitorServer() {
 	// 定义处理函数
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Hello, World!") // 将 "Hello, World!" 作为响应返回
@@ -66,5 +66,5 @@ func MoniterServer() {
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/node", getNodeData)
 
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":9001", nil)
 }

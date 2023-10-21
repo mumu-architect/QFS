@@ -6,14 +6,14 @@ import (
 	"net/http"
 )
 
-func getMoniterData(w http.ResponseWriter, r *http.Request) {
+func getMonitorData(w http.ResponseWriter, r *http.Request) {
 	//fmt.Fprintln(w, "Welcome to the main page!")
 	//修改监控服务节点信息
-	moniterNodeData := GetMoniterNodeInstance()
-	//logger.Info.Println(moniterNodeData.moniterNodeMap.String())
-	nodeDataMap := moniterNodeData.moniterNodeMap
-	var dataList []MoniterNodeAddr
-	nodeDataMap.Range(func(k string, v MoniterNodeAddr) bool {
+	MonitorNodeData := GetMonitorNodeInstance()
+	//logger.Info.Println(MonitorNodeData.monitorNodeMap.String())
+	nodeDataMap := MonitorNodeData.monitorNodeMap
+	var dataList []MonitorNodeAddr
+	nodeDataMap.Range(func(k string, v MonitorNodeAddr) bool {
 		//addrString := k
 
 		nodeData := v
@@ -57,7 +57,7 @@ func Error(w http.ResponseWriter, data any) {
 	jsonEncode(w, result)
 }
 
-func MoniterServer() {
+func MonitorServer() {
 	// 定义处理函数
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Hello, World!") // 将 "Hello, World!" 作为响应返回
@@ -65,7 +65,7 @@ func MoniterServer() {
 
 	// 注册处理函数，并监听端口
 	http.HandleFunc("/", handler)
-	http.HandleFunc("/moniter", getMoniterData)
+	http.HandleFunc("/Monitor", getMonitorData)
 
-	http.ListenAndServe(":9090", nil)
+	http.ListenAndServe(":9002", nil)
 }
