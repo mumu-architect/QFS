@@ -14,10 +14,10 @@ type MonitorSynchronizeSendData struct {
 	Operate      string
 	Type         string //消息类型 json
 	MessageKey   string
-	MessageValue NodeData
+	MessageValue any
 }
 
-func NewMonitorSynchronizeSendData(operate string, typeString string, messageKey string, messageValue NodeData) MonitorSynchronizeSendData {
+func NewMonitorSynchronizeSendData(operate string, typeString string, messageKey string, messageValue any) MonitorSynchronizeSendData {
 	return MonitorSynchronizeSendData{
 		Operate:      operate,
 		Type:         typeString,

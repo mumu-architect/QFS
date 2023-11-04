@@ -39,6 +39,11 @@ func (nhd *NodeHeartData) GetNode(key string) (NodeData, bool) {
 	return nodeData, e
 }
 
+// GetNodeMap 获取节点nodeMap数据
+func (nhd *NodeHeartData) GetNodeMap() *hashmap.Map[string, NodeData] {
+	return nhd.nodeMap
+}
+
 // NodeData 节点数据类型
 type NodeData struct {
 	Host         string

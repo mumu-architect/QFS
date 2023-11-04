@@ -50,7 +50,8 @@ var (
 )
 
 var (
-	isLeader bool
+	isLeader     bool
+	leaderIpAddr string
 )
 
 func init() {
@@ -208,7 +209,7 @@ func main() {
 		os.Exit(1)
 		return
 	}
-	raftDir := "node/raft_" + raftId
+	raftDir := "data/raft_" + raftId
 	os.MkdirAll(raftDir, 0700)
 
 	// 初始化raft
@@ -226,9 +227,13 @@ func main() {
 	go func() {
 		for leader := range myRaft.LeaderCh() {
 			isLeader = leader
-			logger.Info.Printf("Leader: %s", isLeader) //bool
+			//logger.Info.Printf("Leader: %s", isLeader) //bool判断是否有领导
+			if isLeader {
+				leaderIpAddr, _ := myRaft.LeaderWithID() //获取leader,地址和端口
+				leaderAddr := myRaft.Leader()
+				logger.Info.Printf("Leader:%s=>%s", leaderIpAddr, leaderAddr) //bool判断是否有领导
+			}
 		}
-
 	}()
 
 	// 启动http server

@@ -5,3 +5,5 @@ monitor:
   #同步监控节点的数据端口
   SynchronizeHostPort: "1005"
   SynchronizeHostAddr: "192.168.1.5:1005,192.168.1.5:1005,192.168.1.5:1005"
+  #监控节点的数据春初
+  DataStorageDirectory: "data/"

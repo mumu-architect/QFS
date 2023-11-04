@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"mumu.com/common/config"
 	"mumu.com/common/function"
+	"mumu.com/common/logger"
 	"mumu.com/monitor/server"
 	"net"
 	"strconv"
@@ -16,6 +18,48 @@ func main() {
 	go server.SynchronizeMonitorReceiveData()
 	//监控节点数据服务
 	go server.MonitorServer()
+
+	// 选主
+	go func() {
+		monitorRaftSelectionObject, err := server.MonitorRaftSelectionRun()
+		if err == nil {
+			logger.Error.Println(err)
+			return
+		}
+		//masterIpAddr := monitorRaftSelectionObject.GetLeaderIpAddr()
+		//发送主节点ip到数据节点
+		nodeHeartData := server.GETNodeHeartInstance()
+		nodeDataMap := nodeHeartData.GetNodeMap()
+		message := server.NewMonitorSynchronizeSendData("UPDATE", "json", "master", monitorRaftSelectionObject)
+		nodeDataMap.Range(func(k string, v server.NodeData) bool {
+			nodeData := v
+			if nodeData.Alive == true {
+				address := fmt.Sprintf("%s:%d", nodeData.Host, nodeData.Port)
+				conn, err := net.Dial("tcp", address)
+				if err != nil {
+					fmt.Printf("Failed to connect to %s: %s\n", address, err)
+					return false
+				}
+				defer conn.Close()
+				//message := "Hello from master node!"
+				//message := NewMonitorSynchronizeSendData('')
+				// 将JSON数据编码为字节流
+				jsonData, err := json.Marshal(message)
+				if err != nil {
+					logger.Error.Println("JSON编码错误:", err)
+					return false
+				}
+				_, err = conn.Write(jsonData)
+				if err != nil {
+					logger.Error.Printf("Failed to send message to %s: %s\n", address, err)
+				} else {
+					logger.Info.Printf("Message sent to %s successfully\n", address)
+				}
+			}
+			return true
+		})
+
+	}()
 	//ScanMonitor 扫描监控
 	server.ScanMonitor()
 	// 监听心跳响应
@@ -41,8 +85,8 @@ func receiveHeartbeat() {
 		}
 		remoteIp := "127.0.0.1"
 		remotePort, _ := strconv.ParseUint(HostPort, 10, 32)
-		Address := fmt.Sprintf("%s:%d", hostIp, remotePort)
-		if configMasterAddr == Address {
+		address := fmt.Sprintf("%s:%d", hostIp, remotePort)
+		if configMasterAddr == address {
 			remoteIp = hostIp
 		} else {
 			return

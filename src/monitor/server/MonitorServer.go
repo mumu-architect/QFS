@@ -6,10 +6,19 @@ import (
 	"net/http"
 )
 
+func getMonitorNodeData(w http.ResponseWriter, r *http.Request) {
+	//fmt.Fprintln(w, "Welcome to the main page!")
+	monitorRaftSelectionObject, err := MonitorRaftSelectionRun()
+	if err == nil {
+		var data []string
+		Error(w, data)
+	}
+	Success(w, monitorRaftSelectionObject)
+}
 func getNodeData(w http.ResponseWriter, r *http.Request) {
 	//fmt.Fprintln(w, "Welcome to the main page!")
 	nodeHeartData := GETNodeHeartInstance()
-	nodeDataMap := nodeHeartData.nodeMap
+	nodeDataMap := nodeHeartData.GetNodeMap()
 
 	var dataList []NodeData
 	nodeDataMap.Range(func(k string, v NodeData) bool {
@@ -35,6 +44,7 @@ func jsonEncode(w http.ResponseWriter, data any) {
 	jsonData, _ := json.Marshal(data)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonData)
+	return
 }
 
 func Success(w http.ResponseWriter, data any) {

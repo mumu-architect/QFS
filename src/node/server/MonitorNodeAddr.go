@@ -101,8 +101,11 @@ func (n *MonitorNodeAddr) ToString() MonitorNodeAddr {
 func GetMonitorNodeAddr() ([]MonitorNodeAddr, error) {
 	//读取yml
 	HostAddrList, err := config.GetMonitorHostAddr("../monitor/config/MonitorConfig.yaml")
+	if err != nil {
+		logger.Error.Printf("%s", err)
+		return nil, err
+	}
 	MasterHostAddr, err := config.TwoConfigParam{}.GetConfigParam("../monitor/config/MonitorConfig.yaml", "monitor", "MasterHostAddr")
-
 	if err != nil {
 		logger.Error.Printf("%s", err)
 		return nil, err
