@@ -20,7 +20,7 @@ func SynchronizeMonitorReceiveData() {
 		SynchronizeHostPort, _ := config.TwoConfigParam{}.GetConfigParam("./config/MonitorConfig.yaml", "monitor", "HostPort")
 		hostIp, e := function.GetNativeIP()
 		if e != nil {
-			fmt.Println("ip不存在 port")
+			fmt.Println("ip不存在port")
 		}
 
 		remoteIp := hostIp

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"Monitor/server"
-	"common/config"
-	"common/function"
 	"fmt"
+	"mumu.com/common/config"
+	"mumu.com/common/function"
+	"mumu.com/monitor/server"
 	"net"
 	"strconv"
 	"strings"

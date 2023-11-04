@@ -11,10 +11,10 @@ type NodeHeartData struct {
 }
 
 var NodeHeartInstance *NodeHeartData
-var NodeHeartonce sync.Once
+var NodeHeartOnce sync.Once
 
 func GETNodeHeartInstance() *NodeHeartData {
-	NodeHeartonce.Do(func() {
+	NodeHeartOnce.Do(func() {
 		NodeHeartInstance = &NodeHeartData{
 			nodeMap: hashmap.New[string, NodeData](),
 		}

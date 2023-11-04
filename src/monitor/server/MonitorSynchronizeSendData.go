@@ -1,7 +1,7 @@
 package server
 
 import (
-	"Monitor/config"
+	"common/config"
 	"common/logger"
 	"encoding/json"
 	"fmt"

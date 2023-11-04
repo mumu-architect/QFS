@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"mumu.com/node/server"
 	"net"
-	"node/server"
 	"time"
 )
 
@@ -22,7 +22,7 @@ func sendHeartbeat(ip string, port uint32) bool {
 	remoteAddress := fmt.Sprintf("%s:%d", ip, port)
 
 	//便于调试,修改ip
-	a := "192.168.1.4:0"
+	a := "192.168.1.5:0"
 	b, err := net.ResolveTCPAddr("tcp", a)
 	d := &net.Dialer{
 		LocalAddr: b,
