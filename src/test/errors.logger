@@ -1,0 +1,46 @@
+[31m[ERROR:][0m 2023/10/17 06:59:41.169217 D:/bigdata/go/code/QFS/src/test/main.go:13: Error31231231
+[31m[ERROR:][0m 2023/10/17 07:00:15.037448 D:/bigdata/go/code/QFS/src/test/main.go:15: Error31231231
+[31m[ERROR:][0m 2023/10/17 07:01:07.516727 D:/bigdata/go/code/QFS/src/test/main.go:15: Error31231231
+[31m[ERROR:][0m 2023/10/17 07:01:28.595111 D:/bigdata/go/code/QFS/src/test/main.go:14: Error31231231
+[31m[ERROR:][0m 2023/10/17 07:06:17.751377 D:/bigdata/go/code/QFS/src/test/main.go:13: Error31231231
+[31m[ERROR:][0m 2023/10/17 07:06:35.479318 D:/bigdata/go/code/QFS/src/test/main.go:14: Error31231231
+[31m[ERROR:][0m 2023/10/17 07:55:22.349843 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 07:59:31.186522 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:00:12.120244 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:00:38.980374 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:00:57.774517 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:01:26.495379 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:01:53.782152 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:02:09.142014 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:04:35.551277 D:/bigdata/go/code/QFS/src/test/main.go:16: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:05:46.817934 D:/bigdata/go/code/QFS/src/test/main.go:15: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:06:27.467939 D:/bigdata/go/code/QFS/src/test/main.go:15: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:07:41.325177 D:/bigdata/go/code/QFS/src/test/main.go:15: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:07:46.392026 D:/bigdata/go/code/QFS/src/test/main.go:15: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:09:28.900596 D:/bigdata/go/code/QFS/src/test/main.go:26: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:10:13.760784 D:/bigdata/go/code/QFS/src/test/main.go:29: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:11:14.031637 D:/bigdata/go/code/QFS/src/test/main.go:29: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:12:36.231124 D:/bigdata/go/code/QFS/src/test/main.go:32: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:23:47.271510 D:/bigdata/go/code/QFS/src/test/main.go:32: Error31231231
+[31m[ERROR:][0m 2023/10/17 08:33:02.772531 D:/bigdata/go/code/QFS/src/test/main.go:32: Error31231231
+[31m[ERROR:][0m 2023/10/17 10:40:12.507668 D:/bigdata/go/code/QFS/src/test/main.go:50: Error31231231
+[31m[ERROR:][0m 2023/10/17 10:40:44.546786 D:/bigdata/go/code/QFS/src/test/main.go:50: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:46:08.062146 D:/bigdata/go/code/QFS/src/test/main.go:62: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:46:49.849445 D:/bigdata/go/code/QFS/src/test/main.go:62: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:47:16.831182 D:/bigdata/go/code/QFS/src/test/main.go:62: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:47:19.359912 D:/bigdata/go/code/QFS/src/test/main.go:62: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:47:23.330660 D:/bigdata/go/code/QFS/src/test/main.go:62: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:50:21.507171 D:/bigdata/go/code/QFS/src/test/main.go:62: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:50:25.544755 D:/bigdata/go/code/QFS/src/test/main.go:62: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:51:20.137380 D:/bigdata/go/code/QFS/src/test/main.go:73: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:51:46.068574 D:/bigdata/go/code/QFS/src/test/main.go:73: Error31231231
+[31m[ERROR:][0m 2023/10/17 13:52:26.521374 D:/bigdata/go/code/QFS/src/test/main.go:73: Error31231231
+[31m[ERROR:][0m 2023/10/17 15:46:16.085255 D:/bigdata/go/code/QFS/src/Monitor/config/Config.go:23: 读取文件失败： open MonitorConfig.yaml: The system cannot find the file specified.
+[31m[ERROR:][0m 2023/10/17 15:46:16.092868 D:/bigdata/go/code/QFS/src/test/main.go:77: Error31231231
+[31m[ERROR:][0m 2023/10/17 15:47:33.943350 D:/bigdata/go/code/QFS/src/Monitor/config/Config.go:24: 读取文件失败： open MonitorConfig.yaml: The system cannot find the file specified.
+[31m[ERROR:][0m 2023/10/17 15:47:33.950717 D:/bigdata/go/code/QFS/src/test/main.go:77: Error31231231
+[31m[ERROR:][0m 2023/10/17 15:47:58.046812 D:/bigdata/go/code/QFS/src/Monitor/config/Config.go:24: 读取文件失败： open MonitorConfig.yaml: The system cannot find the file specified.
+[31m[ERROR:][0m 2023/10/17 15:47:58.054429 D:/bigdata/go/code/QFS/src/test/main.go:77: Error31231231
+[31m[ERROR:][0m 2023/10/17 15:49:46.420737 D:/bigdata/go/code/QFS/src/test/main.go:77: Error31231231
+[31m[ERROR:][0m 2023/10/17 16:06:01.776021 D:/bigdata/go/code/QFS/src/test/main.go:77: Error31231231
+[31m[ERROR:][0m 2023/10/17 16:12:36.179366 D:/bigdata/go/code/QFS/src/test/main.go:77: Error31231231
