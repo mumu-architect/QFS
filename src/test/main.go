@@ -189,6 +189,7 @@ func (h HttpServer) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	value := h.fsm.DataBase.Data[key]
+
 	logger.Info.Printf("key: %s", key)
 	logger.Info.Printf("value: %s", value)
 	//fmt.Fprintf(w, "%s", value)
@@ -198,9 +199,10 @@ func (h HttpServer) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	//strKey := fmt.Sprintf("%s", key)
 	data[key] = value
-	Success(w, data)
+	Success(w, h.fsm.DataBase)
 	return
 }
+
 func main() {
 	flag.Parse()
 	// 初始化配置
@@ -244,6 +246,7 @@ func main() {
 
 	http.HandleFunc("/set", httpServer.Set)
 	http.HandleFunc("/get", httpServer.Get)
+
 	http.ListenAndServe(httpAddr, nil)
 
 	// 关闭raft

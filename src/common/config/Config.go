@@ -1,8 +1,8 @@
 package config
 
 import (
-	"common/logger"
 	"gopkg.in/yaml.v3"
+	"mumu.com/common/logger"
 	"os"
 	"strings"
 )
