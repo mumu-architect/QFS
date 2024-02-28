@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"log"
@@ -38,7 +39,16 @@ func ColorString(prefix string, color string) string {
 	return prefix
 }
 
-func init() {
+// 设置日志级别
+func setLogLevel(level logrus.Level) {
+	//建一个新的Logger对象
+	logger := logrus.New()
+	// 设置日志级别为DEBUG
+	logger.SetLevel(level)
+}
+
+// 日志记录器函数
+func logger() {
 	file, err := os.OpenFile("errors.logger", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalln("Unable to open logger file:", err)
@@ -61,4 +71,10 @@ func init() {
 	Error = log.New(io.MultiWriter(file, os.Stderr),
 		prefix,
 		log.Ldate|log.Lmicroseconds|log.Llongfile)
+}
+
+func init() {
+	//设置日志级别为debug
+	setLogLevel(logrus.DebugLevel)
+	logger()
 }
