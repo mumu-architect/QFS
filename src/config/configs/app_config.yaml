@@ -1,0 +1,33 @@
+# Redis Cluster Go Implementation - Example Configuration File
+
+# Server configuration
+server:
+  # The address the server listens on (e.g., ":7000")
+  address: ":7000"
+
+  # Enable or disable cluster mode. Set to true for a cluster node.
+  cluster_mode: true
+
+  # Unique node identifier. If left empty, a random ID will be generated.
+  # node_id: "node-12345"
+
+  # Password required for sensitive cluster management commands (e.g., CLUSTER REBALANCE)
+  # cluster_password: "my-strong-password"
+
+# Replication configuration
+replication:
+# If this node is a slave, specify the master node's address (e.g., "127.0.0.1:7000")
+# slave_of: "127.0.0.1:7000"
+
+# Advanced cluster configuration
+cluster:
+  # The maximum time a node can be unreachable before it is considered failing.
+  node_timeout: 15s
+
+  # The interval at which gossip messages are sent to random peers.
+  gossip_interval: 1s
+
+# Logging configuration
+logging:
+  # Log level: "debug", "info", "warn", "error"
+  level: "info"
