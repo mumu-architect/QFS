@@ -1,13 +1,15 @@
-package common
+package main
 
 import (
 	"fmt"
 
 	"time"
+
+	"mumu.com/redis-go/cacheClient/common"
 )
 
 func main() {
-	client, err := NewClient("127.0.0.1:6379", "", 5*time.Second)
+	client, err := common.NewClient("127.0.0.1:6379", "", 5*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -18,6 +20,7 @@ func main() {
 	fmt.Println("SetNX lock:order:", ok) // 第一次true，重复调用false
 
 	// 2. MSet/MGet（批量操作）
+
 	_ = client.MSet(map[string]string{
 		"a": "1",
 		"b": "2",

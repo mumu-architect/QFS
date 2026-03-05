@@ -1,12 +1,14 @@
-package common
+package main
 
 import (
 	"fmt"
 	"time"
+
+	"mumu.com/redis-go/cacheClient/common"
 )
 
 func main() {
-	client, err := NewClient("127.0.0.1:6379", "", 5*time.Second)
+	client, err := common.NewClient("127.0.0.1:6379", "", 5*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -24,14 +26,15 @@ func main() {
 		"city": "上海",
 		"job":  "工程师",
 	})
-
+	all, _ := client.HGetAll(hashKey)
+	fmt.Println("HGetAll result:", all) // 输出: map[age:28 city:上海 job:工程师 name:王五]
 	// 3. HMGet（批量获取）
 	vals, _ := client.HMGet(hashKey, "name", "age", "gender")
 	fmt.Println("HMGet result:", vals) // 输出: [王五 28 ""]
 
 	// 4. HGetAll（获取所有字段和值）
-	all, _ := client.HGetAll(hashKey)
-	fmt.Println("HGetAll result:", all) // 输出: map[age:28 city:上海 job:工程师 name:王五]
+	all1, _ := client.HGetAll(hashKey)
+	fmt.Println("HGetAll result:", all1) // 输出: map[age:28 city:上海 job:工程师 name:王五]
 
 	// 5. HKeys/HVals（字段名/值集合）
 	keys, _ := client.HKeys(hashKey)
@@ -48,4 +51,6 @@ func main() {
 	// 7. HDel（删除字段）
 	delCount, _ := client.HDel(hashKey, "job", "gender")
 	fmt.Println("HDel count:", delCount) // 输出: 1（仅job存在）
+	all2, _ := client.HGetAll(hashKey)
+	fmt.Println("HGetAll result:", all2) // 输出: map[age:28 city:上海 job:工程师 name:王五]
 }

@@ -1,17 +1,32 @@
-package snowflake
+package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"sync"
 	"time"
+
+	"mumu.com/config"
+	"mumu.com/redis-go/distributedId/snowflake"
 )
 
 // -------------------------- 5. 测试代码 --------------------------
 func main() {
+	// 1. 解析命令行参数
+	configPath := flag.String("config", "configs/redis-cluster.yaml", "Path to the configuration file")
+	flag.Parse()
+
+	// 2. 加载配置文件，如果不存在则自动创建并使用默认配置
+	cfg, err := config.LoadOrCreate(*configPath)
+	if err != nil {
+		log.Fatalf("Failed to load or create configuration: %v", err)
+	}
 	// 自定义起始时间：2024-01-01 00:00:00（毫秒时间戳）
-	epoch := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
+	epoch := time.Date(2025, 11, 1, 1, 1, 1, 1, time.UTC).Unix()
+	fmt.Printf("Failed to load or create configuration: %v|%v|%v \r\n", cfg.Server.CenterId, cfg.Server.WorkerId, epoch)
 	// 初始化雪花实例（数据中心ID=1，机器ID=3）
-	sf, err := NewSnowflake(1, 1, epoch)
+	sf, err := snowflake.NewSnowflake(cfg.Server.CenterId, cfg.Server.WorkerId, epoch)
 	if err != nil {
 		fmt.Printf("初始化失败：%v\n", err)
 		return
@@ -47,5 +62,13 @@ func main() {
 	}
 
 	wg.Wait()
+
+	id, err := sf.NextID()
+
+	fmt.Printf("生成ID：%v\n", id)
+	id, err = sf.NextID()
+
+	fmt.Printf("生成ID：%v\n", id)
+
 	fmt.Printf("测试完成：共生成%d个唯一ID（预期2000个）\n", len(idSet))
 }

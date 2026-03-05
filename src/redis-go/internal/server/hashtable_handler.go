@@ -3,115 +3,10 @@ package server
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"mumu.com/redis-go/internal/cluster"
 	"mumu.com/redis-go/internal/protocol"
 )
-
-// CommandHandler 保持原有结构，新增哈希表命令分发
-func (h *CommandHandler) HandleCommand(value protocol.Value) protocol.Value {
-	if value.Type != protocol.TypeArray {
-		return protocol.Value{Type: protocol.TypeError, Str: "ERR invalid command format"}
-	}
-	if len(value.Array) == 0 {
-		return protocol.Value{Type: protocol.TypeError, Str: "ERR empty command"}
-	}
-
-	cmd := strings.ToUpper(value.Array[0].Str)
-	args := value.Array[1:]
-
-	switch cmd {
-	// 原有命令（保持不变）
-	case "PING":
-		return h.handlePing(args)
-	case "SET", "SETNX", "SETXX", "MSET", "MSETNX", "GET", "GETSET", "MGET", "GETRANGE", "STRLEN", "DEL", "EXISTS", "CLUSTER":
-		// 沿用之前实现的命令
-		return h.dispatchOriginalCommands(cmd, args)
-	// 原有哈希表命令
-	case "HSET", "HGET", "HGETALL":
-		return h.dispatchHashCommands(cmd, args)
-	// 新增哈希表命令
-	case "HSETNX", "HSETMULTI", "HINCRBY", "HMGET", "HKEYS", "HVALS", "HDEL", "HDELMULTI", "HCLEAR", "HDELHASH", "HASEXISTS", "HASHCOUNT", "HSTRLEN":
-		return h.dispatchHashCommands(cmd, args)
-	default:
-		return protocol.Value{Type: protocol.TypeError, Str: "ERR unknown command '" + cmd + "'"}
-	}
-}
-
-// dispatchOriginalCommands 分发原有命令（避免代码冗余）
-func (h *CommandHandler) dispatchOriginalCommands(cmd string, args []protocol.Value) protocol.Value {
-	switch cmd {
-	case "SET":
-		return h.handleSet(args)
-	case "SETNX":
-		return h.handleSetNX(args)
-	case "SETXX":
-		return h.handleSetXX(args)
-	case "MSET":
-		return h.handleMSet(args)
-	case "MSETNX":
-		return h.handleMSetNX(args)
-	case "GET":
-		return h.handleGet(args)
-	case "GETSET":
-		return h.handleGetSet(args)
-	case "MGET":
-		return h.handleMGet(args)
-	case "GETRANGE":
-		return h.handleGetRange(args)
-	case "STRLEN":
-		return h.handleStrLen(args)
-	case "DEL":
-		return h.handleDel(args)
-	case "EXISTS":
-		return h.handleExists(args)
-	case "CLUSTER":
-		return h.handleCluster(args)
-	default:
-		return protocol.Value{Type: protocol.TypeError, Str: "ERR unknown command '" + cmd + "'"}
-	}
-}
-
-// dispatchHashCommands 分发哈希表命令（原有+新增）
-func (h *CommandHandler) dispatchHashCommands(cmd string, args []protocol.Value) protocol.Value {
-	switch cmd {
-	case "HSET":
-		return h.handleHSet(args)
-	case "HGET":
-		return h.handleHGet(args)
-	case "HGETALL":
-		return h.handleHGetAll(args)
-	case "HSETNX":
-		return h.handleHSetNX(args)
-	case "HSETMULTI":
-		return h.handleHSetMulti(args)
-	case "HINCRBY":
-		return h.handleHIncrBy(args)
-	case "HMGET":
-		return h.handleHMGet(args)
-	case "HKEYS":
-		return h.handleHKeys(args)
-	case "HVALS":
-		return h.handleHVals(args)
-	case "HDEL":
-		return h.handleHDel(args)
-	case "HDELMULTI":
-		return h.handleHDelMulti(args)
-	case "HCLEAR":
-		return h.handleHClear(args)
-	case "HDELHASH":
-		return h.handleHDelHash(args)
-	case "HASEXISTS":
-		return h.handleHashExists(args)
-	case "HASHCOUNT":
-		return h.handleHashCount(args)
-	case "HSTRLEN":
-		return h.handleHStrLen(args)
-	default:
-		return protocol.Value{Type: protocol.TypeError, Str: "ERR unknown hash command '" + cmd + "'"}
-	}
-}
 
 // -------------------------- 新增哈希表命令实现 --------------------------
 
@@ -130,7 +25,7 @@ func (h *CommandHandler) handleHSetNX(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -142,39 +37,65 @@ func (h *CommandHandler) handleHSetNX(args []protocol.Value) protocol.Value {
 	return protocol.Value{Type: protocol.TypeInteger, Int: 0} // 失败返回0
 }
 
-// handleHSetMulti 处理 HSETMULTI 命令（批量设置多个字段）
+// handleHSetMulti 处理 HSETMULTI 命令（批量设置多个字段，原子操作）
+// 命令格式：HSETMULTI hashKey field1 value1 field2 value2 ...
 func (h *CommandHandler) handleHSetMulti(args []protocol.Value) protocol.Value {
-	// 校验参数：HSETMULTI hashKey field1 value1 field2 value2 ...（至少3个参数，奇数个）
-	if len(args) < 3 || args[0].Type != protocol.TypeBulkString || len(args)%2 != 1 {
-		return protocol.Value{Type: protocol.TypeError, Str: "ERR wrong number of arguments for 'hsetmulti' command"}
+	// 1. 参数校验：至少3个参数（hashKey + 至少1组 field-value），且总参数数为奇数
+	if len(args) < 3 {
+		return protocol.Value{Type: protocol.TypeError, Str: "ERR wrong number of arguments for 'hsetmulti' command: at least 3 arguments (hashKey, field1, value1)"}
 	}
-	hashKey := args[0].Str
-	fieldValues := make(map[string]string)
+	if len(args)%2 != 1 {
+		return protocol.Value{Type: protocol.TypeError, Str: "ERR invalid argument count for 'hsetmulti' command: must be odd (hashKey + even number of field-value pairs)"}
+	}
+	// 校验 hashKey 类型为 BulkString
+	if args[0].Type != protocol.TypeBulkString {
+		return protocol.Value{Type: protocol.TypeError, Str: "ERR hashKey must be a bulk string for 'hsetmulti' command"}
+	}
 
-	// 解析字段-值对，校验类型
+	hashKey := args[0].Str
+	// 核心修复：定义为 map[string]interface{} 以匹配 HashTableStore 接口要求
+	fieldValues := make(map[string]interface{})
+
+	// 2. 解析字段-值对，校验类型并转换
 	for i := 1; i < len(args); i += 2 {
+		// 确保不会越界（因前面已校验参数数为奇数，理论上不会触发，但做容错）
 		if i+1 >= len(args) {
-			return protocol.Value{Type: protocol.TypeError, Str: "ERR invalid argument pair for 'hsetmulti' command"}
+			return protocol.Value{Type: protocol.TypeError, Str: "ERR incomplete field-value pair for 'hsetmulti' command"}
 		}
+
 		fieldVal := args[i]
 		valueVal := args[i+1]
-		if fieldVal.Type != protocol.TypeBulkString || valueVal.Type != protocol.TypeBulkString {
-			return protocol.Value{Type: protocol.TypeError, Str: "ERR invalid argument type for 'hsetmulti' command"}
+
+		// 校验字段和值均为 BulkString 类型（符合 Redis 协议规范）
+		if fieldVal.Type != protocol.TypeBulkString {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR field at position %d must be a bulk string", i+1)}
 		}
-		fieldValues[fieldVal.Str] = valueVal.Str
+		if valueVal.Type != protocol.TypeBulkString {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR value for field '%s' must be a bulk string", fieldVal.Str)}
+		}
+
+		// 转换为 map[string]interface{}（string 可隐式转换为 interface{}）
+		field := fieldVal.Str
+		value := valueVal.Str
+		fieldValues[field] = value
 	}
 
-	// 集群模式槽位检查
+	// 3. 集群模式：检查 hashKey 对应的槽位是否归当前节点所有
 	if h.server.IsClusterMode() {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
-		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+		if !ok {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR slot %d for hashKey '%s' has no owner", slot, hashKey)}
+		}
+		if ownerID != h.server.GetClusterState().Self.ID {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hashKey '%s' belongs to slot %d (owner: %s), which is not handled by this node.go", hashKey, slot, ownerID)}
 		}
 	}
 
-	// 原子执行批量设置
+	// 4. 原子执行批量设置（HashTableStore 层保证原子性）
 	h.server.GetHashTableStore().HSetMulti(hashKey, fieldValues)
+
+	// 5. 返回成功响应（符合 Redis 批量操作响应规范）
 	return protocol.Value{Type: protocol.TypeSimpleString, Str: "OK"}
 }
 
@@ -199,7 +120,7 @@ func (h *CommandHandler) handleHIncrBy(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -234,7 +155,7 @@ func (h *CommandHandler) handleHMGet(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -267,7 +188,7 @@ func (h *CommandHandler) handleHKeys(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -296,7 +217,7 @@ func (h *CommandHandler) handleHVals(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -315,7 +236,7 @@ func (h *CommandHandler) handleHVals(args []protocol.Value) protocol.Value {
 // handleHDel 处理 HDEL 命令（单字段删除）
 func (h *CommandHandler) handleHDel(args []protocol.Value) protocol.Value {
 	// 校验参数：HDEL hashKey field（2个BulkString）
-	if len(args) != 2 || args[0].Type != protocol.TypeBulkString || args[1].Type != protocol.TypeBulkString {
+	if len(args) < 2 || args[0].Type != protocol.TypeBulkString || args[1].Type != protocol.TypeBulkString {
 		return protocol.Value{Type: protocol.TypeError, Str: "ERR wrong number of arguments for 'hdel' command"}
 	}
 	hashKey := args[0].Str
@@ -326,10 +247,12 @@ func (h *CommandHandler) handleHDel(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
+	fmt.Println(hashKey)
+	fmt.Println(field)
 	// 执行删除
 	ok := h.server.GetHashTableStore().HDel(hashKey, field)
 	if ok {
@@ -360,7 +283,7 @@ func (h *CommandHandler) handleHDelMulti(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -382,7 +305,7 @@ func (h *CommandHandler) handleHClear(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -404,7 +327,7 @@ func (h *CommandHandler) handleHDelHash(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -429,7 +352,7 @@ func (h *CommandHandler) handleHashExists(args []protocol.Value) protocol.Value 
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -467,7 +390,7 @@ func (h *CommandHandler) handleHStrLen(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -480,6 +403,25 @@ func (h *CommandHandler) handleHStrLen(args []protocol.Value) protocol.Value {
 }
 
 // -------------------------- 原有哈希表命令优化（修复bug） --------------------------
+func (h *CommandHandler) handleHSet(args []protocol.Value) protocol.Value {
+	if len(args) < 3 || args[0].Type != protocol.TypeBulkString || args[1].Type != protocol.TypeBulkString || args[2].Type != protocol.TypeBulkString {
+		return protocol.Value{Type: protocol.TypeError, Str: "ERR wrong number of arguments for 'hset' command"}
+	}
+	hashKey := args[0].Str
+	key := args[1].Str
+	value := args[2].Str
+
+	if h.server.IsClusterMode() {
+		slot := cluster.SlotForKey(key)
+		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
+		if !ok || ownerID != h.server.GetClusterState().Self.ID {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR key '%s' belongs to slot %d, which is not handled by this node.go", key, slot)}
+		}
+	}
+
+	h.server.GetHashTableStore().HSet(hashKey, key, value)
+	return protocol.Value{Type: protocol.TypeSimpleString, Str: "OK"}
+}
 
 // 优化 handleHGet：修复错误判断逻辑
 func (h *CommandHandler) handleHGet(args []protocol.Value) protocol.Value {
@@ -493,7 +435,7 @@ func (h *CommandHandler) handleHGet(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -519,7 +461,7 @@ func (h *CommandHandler) handleHGetAll(args []protocol.Value) protocol.Value {
 		slot := cluster.SlotForKey(hashKey)
 		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
 		if !ok || ownerID != h.server.GetClusterState().Self.ID {
-			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node", hashKey, slot)}
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hash key '%s' belongs to slot %d, which is not handled by this node.go", hashKey, slot)}
 		}
 	}
 
@@ -533,4 +475,75 @@ func (h *CommandHandler) handleHGetAll(args []protocol.Value) protocol.Value {
 	}
 
 	return protocol.Value{Type: protocol.TypeArray, Array: respArray}
+}
+
+// handleHLen 处理 HLEN 命令（获取哈希表的字段数量）
+// 命令格式：HLEN hashKey
+// 功能：返回指定哈希表中存在的字段总数，哈希表不存在则返回 0
+func (h *CommandHandler) handleHLen(args []protocol.Value) protocol.Value {
+	// 1. 参数校验：仅需 1 个 BulkString 类型的 hashKey 参数
+	if len(args) != 1 {
+		return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR wrong number of arguments for 'hlen' command: expected 1, got %d", len(args))}
+	}
+	if args[0].Type != protocol.TypeBulkString {
+		return protocol.Value{Type: protocol.TypeError, Str: "ERR hashKey must be a bulk string for 'hlen' command"}
+	}
+
+	hashKey := args[0].Str
+
+	// 2. 集群模式：检查 hashKey 对应的槽位是否归当前节点所有
+	if h.server.IsClusterMode() {
+		slot := cluster.SlotForKey(hashKey)
+		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
+		if !ok {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR slot %d for hashKey '%s' has no owner", slot, hashKey)}
+		}
+		if ownerID != h.server.GetClusterState().Self.ID {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hashKey '%s' belongs to slot %d (owner: %s), which is not handled by this node.go", hashKey, slot, ownerID)}
+		}
+	}
+
+	// 3. 调用存储层获取字段数量（原子操作，存储层保证并发安全）
+	fieldCount := h.server.GetHashTableStore().HLen(hashKey)
+
+	// 4. 返回结果：整数类型（符合 Redis HLEN 响应格式）
+	// 哈希表不存在或无字段时返回 0，存在字段则返回实际数量
+	return protocol.Value{Type: protocol.TypeInteger, Int: int64(fieldCount)}
+}
+
+// handleHExists 处理 HEXISTS 命令（检查哈希表中指定字段是否存在）
+// 命令格式：HEXISTS hashKey field
+// 功能：存在返回 1，不存在（字段不存在或哈希表不存在）返回 0
+func (h *CommandHandler) handleHExists(args []protocol.Value) protocol.Value {
+	// 1. 参数校验：必须传入 2 个 BulkString 类型参数（hashKey + field）
+	if len(args) != 2 {
+		return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR wrong number of arguments for 'hexists' command: expected 2, got %d", len(args))}
+	}
+	if args[0].Type != protocol.TypeBulkString {
+		return protocol.Value{Type: protocol.TypeError, Str: "ERR hashKey must be a bulk string for 'hexists' command"}
+	}
+	if args[1].Type != protocol.TypeBulkString {
+		return protocol.Value{Type: protocol.TypeError, Str: "ERR field must be a bulk string for 'hexists' command"}
+	}
+
+	hashKey := args[0].Str
+	field := args[1].Str
+
+	// 2. 集群模式：检查 hashKey 对应的槽位是否归当前节点所有
+	if h.server.IsClusterMode() {
+		slot := cluster.SlotForKey(hashKey)
+		ownerID, ok := h.server.GetClusterState().GetSlotOwner(slot)
+		if !ok {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR slot %d for hashKey '%s' has no owner", slot, hashKey)}
+		}
+		if ownerID != h.server.GetClusterState().Self.ID {
+			return protocol.Value{Type: protocol.TypeError, Str: fmt.Sprintf("ERR hashKey '%s' belongs to slot %d (owner: %s), which is not handled by this node.go", hashKey, slot, ownerID)}
+		}
+	}
+
+	// 3. 调用存储层检查字段是否存在（原子操作，存储层保证并发安全）
+	exists := h.server.GetHashTableStore().HExists(hashKey, field)
+
+	// 4. 返回结果：1=存在，0=不存在（符合 Redis HEXISTS 响应格式）
+	return protocol.Value{Type: protocol.TypeInteger, Int: map[bool]int64{true: 1, false: 0}[exists]}
 }

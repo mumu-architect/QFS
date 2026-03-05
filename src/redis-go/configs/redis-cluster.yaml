@@ -1,0 +1,14 @@
+server:
+    center_id: 7
+    worker_id: 262143
+    address: "127.0.0.1:6379"
+    cluster_mode: false
+    node_id: ""
+    cluster_password: ""
+replication:
+    slave_of: ""
+cluster:
+    node_timeout: 15s
+    gossip_interval: 1s
+logging:
+    level: "info"

@@ -1,6 +1,32 @@
 # QFS
 分布式存储系统
 
+- Website: https://github.com/mumu-architect/QFS
+- Chat: [Gitter](https://matrix.to/#/!jMlxzHueIuZLfxNIYt:gitter.im?via=gitter.im)
+
+### 编译
+```shell
+go mod init redis-cli
+go build -o myredis-cli main.go
+./myredis-cli 127.0.0.1:6379
+```
+### 使用HashiCorp主从切换完整实现
+#### 核心设计
+1.使用HashiCorp Raft，测试通过主从切换
+2.HTTP服务端口 :9001,9002 ,9003
+3.RaftAddr:127.0.0.1:19001,127.0.0.1:19002,127.0.0.1:19003,
+#### 已开发完成
+##### 1.开发完成日志系统logger，日志自动滚动创建且压缩。【完成】
+##### 2.开发完成配置系统config【完成】
+##### 3.开发完成雪花算法生成自增id,从配置文件获取中心id和机器id然后生产唯一自增id【完成】
+##### 4.开发redis-go客户端的包,连接服务器上传图片。分片上传和断点续传，断点续传未测试 【未完成】
+##### 5.缓存服务器客户端开发测试完成，当下支持单机访问，后期修改为集群模式 【完成】
+##### 6.开发完成raft3各节点选主，主节点挂掉，自动选择新的主节点【待测试】[main.go](src/redis-go/cluster/raft/example/main.go)，验证住更新后，nodes数据是否更新
+##### 6.1.浏览器存入redis报错,RESP【完成】
+##### 7.开发内存数据持久化，3台电脑的主从数据同步，高可用【完成】
+##### 8.开发对象存储oss，存储图片字段:
+原始名称，新名称，创建时间，修改时间，图片大小，图片分辨率，MIME类型，图片格式jpg，图片内容的crc64校验图片完整性，
+
 ### 开发进程
 
 #### 1.发送心跳链接集群

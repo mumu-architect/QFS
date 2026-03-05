@@ -4,17 +4,24 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"strings"
+
+	"mumu.com/redis-go/cmd/redis-cli/config"
 )
 
-// 解析命令行参数，获取主机和端口
-func parseArgs() (host, port string) {
-	host = "127.0.0.1"
-	port = "6379"
+func parseArgs(host string, port string) (string, string) {
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	if port == "" {
+		port = "6379"
+	}
 
 	if len(os.Args) > 1 {
 		parts := strings.Split(os.Args[1], ":")
@@ -27,25 +34,25 @@ func parseArgs() (host, port string) {
 	return host, port
 }
 
-// 将Redis命令编码为RESP协议格式
+// 修复中文编码问题：使用字节长度而非字符长度
 func encodeCommand(args []string) []byte {
 	var buf bytes.Buffer
 
 	// 数组头部，*<count>\r\n
 	buf.WriteString(fmt.Sprintf("*%d\r\n", len(args)))
 
-	// 每个参数的长度和值
+	// 每个参数的长度和值（关键修复：使用len([]byte(arg))计算字节长度）
 	for _, arg := range args {
-		buf.WriteString(fmt.Sprintf("$%d\r\n", len(arg)))
-		buf.WriteString(fmt.Sprintf("%s\r\n", arg))
+		argBytes := []byte(arg)                                // 将字符串转换为字节数组
+		buf.WriteString(fmt.Sprintf("$%d\r\n", len(argBytes))) // 计算字节长度
+		buf.Write(argBytes)                                    // 直接写入字节数组
+		buf.WriteString("\r\n")
 	}
 
 	return buf.Bytes()
 }
 
-// 从RESP协议格式解码响应
 func decodeResponse(reader *bufio.Reader) (interface{}, error) {
-	// 读取第一个字节判断响应类型
 	t, err := reader.ReadByte()
 	if err != nil {
 		return nil, err
@@ -73,23 +80,19 @@ func decodeResponse(reader *bufio.Reader) (interface{}, error) {
 	case '*': // 数组
 		return decodeArray(reader)
 	default:
-		return nil, fmt.Errorf("unknown RESP type: %c", t)
+		return nil, fmt.Errorf("redis-cli.go,unknown RESP type: %c", t)
 	}
 }
 
-// 读取一行数据（直到\r\n）
 func readLine(reader *bufio.Reader) (string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
-	// 去除末尾的\r\n
 	return strings.TrimSuffix(line, "\r\n"), nil
 }
 
-// 解码批量字符串
 func decodeBulkString(reader *bufio.Reader) (interface{}, error) {
-	// 读取长度
 	lenStr, err := readLine(reader)
 	if err != nil {
 		return nil, err
@@ -98,29 +101,26 @@ func decodeBulkString(reader *bufio.Reader) (interface{}, error) {
 	var length int
 	fmt.Sscanf(lenStr, "%d", &length)
 
-	if length == -1 { // 表示空
+	if length == -1 {
 		return nil, nil
 	}
 
-	// 读取指定长度的字符串
 	buf := make([]byte, length)
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	// 读取末尾的\r\n
 	_, err = reader.Discard(2)
 	if err != nil {
 		return nil, err
 	}
 
+	// 尝试将字节转换为字符串（支持UTF-8）
 	return string(buf), nil
 }
 
-// 解码数组
 func decodeArray(reader *bufio.Reader) (interface{}, error) {
-	// 读取数组长度
 	lenStr, err := readLine(reader)
 	if err != nil {
 		return nil, err
@@ -129,11 +129,10 @@ func decodeArray(reader *bufio.Reader) (interface{}, error) {
 	var length int
 	fmt.Sscanf(lenStr, "%d", &length)
 
-	if length == -1 { // 表示空数组
+	if length == -1 {
 		return nil, nil
 	}
 
-	// 逐个解码数组元素
 	array := make([]interface{}, length)
 	for i := 0; i < length; i++ {
 		elem, err := decodeResponse(reader)
@@ -146,7 +145,6 @@ func decodeArray(reader *bufio.Reader) (interface{}, error) {
 	return array, nil
 }
 
-// 打印响应结果
 func printResponse(resp interface{}) {
 	if err, ok := resp.(error); ok {
 		fmt.Printf("(error) %s\n", err)
@@ -177,11 +175,31 @@ func printResponse(resp interface{}) {
 	}
 }
 
+func getProjectRootDir() (string, error) {
+	// 获取当前可执行文件路径
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return execPath, err
+}
+
 func main() {
-	host, port := parseArgs()
+	//projectRootDir, _ := getProjectRootDir()
+	//println(projectRootDir)
+	// 1. 解析命令行参数
+	configPath := flag.String("config", "configs/redis-cli.yaml", "Path to the configuration file")
+	flag.Parse()
+
+	// 2. 加载配置文件，如果不存在则自动创建并使用默认配置
+	cfg, err := config.LoadOrCreate(*configPath)
+	if err != nil {
+		log.Fatalf("Failed to load or create configuration: %v", err)
+	}
+
+	host, port := parseArgs(cfg.Server.IP, cfg.Server.Port)
 	address := fmt.Sprintf("%s:%s", host, port)
 
-	// 连接到Redis服务器
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		fmt.Printf("Could not connect to Redis at %s: %v\n", address, err)
@@ -205,16 +223,13 @@ func main() {
 			continue
 		}
 
-		// 处理退出命令
 		if input == "quit" || input == "exit" {
 			fmt.Println("Goodbye!")
 			break
 		}
 
-		// 分割命令和参数
 		args := strings.Fields(input)
 
-		// 编码命令并发送
 		encoded := encodeCommand(args)
 		_, err := conn.Write(encoded)
 		if err != nil {
@@ -223,7 +238,6 @@ func main() {
 			continue
 		}
 
-		// 接收并解码响应
 		resp, err := decodeResponse(reader)
 		if err != nil {
 			fmt.Printf("Error reading response: %v\n", err)
@@ -231,7 +245,6 @@ func main() {
 			continue
 		}
 
-		// 打印响应
 		printResponse(resp)
 		fmt.Print("> ")
 	}

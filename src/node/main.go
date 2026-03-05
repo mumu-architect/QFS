@@ -49,7 +49,7 @@ func sendHeartbeat(ip string, port uint32) bool {
 		fmt.Printf("send heartbeat %s:%d %s\n", ip, port, err)
 		return false
 	}
-	fmt.Printf("node send heartbeat %s:%d成功\n", ip, port)
+	fmt.Printf("node.go send heartbeat %s:%d成功\n", ip, port)
 	return true
 }
 

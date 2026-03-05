@@ -1,0 +1,1 @@
+1.使用HashiCorp Raft，测试通过主从切换

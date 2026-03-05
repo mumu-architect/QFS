@@ -1,4 +1,4 @@
-package common
+package main
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"mumu.com/redis-go/fileUpload/common"
 )
 
 // 客户端配置
@@ -20,7 +22,16 @@ const (
 
 func main() {
 	// 待上传文件路径（替换为你的大文件路径）
-	filePath := "./large_file.test"
+	//filePath := "./large_file.test"
+	// 关键：打印当前工作目录（CWD）
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("获取当前目录失败：", err)
+		return
+	}
+	fmt.Println("当前工作目录：", cwd) // 重点看这行输出！
+
+	filePath := "./fileUpload/fileUploadClient/22.pdf"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		fmt.Printf("错误：文件 %s 不存在\n", filePath)
 		return
@@ -28,7 +39,7 @@ func main() {
 
 	// 1. 拆分文件为分片
 	fmt.Println("开始拆分文件...")
-	chunkPaths, fileMD5, err := SplitFile(filePath)
+	chunkPaths, fileMD5, err := common.SplitFile(filePath)
 	if err != nil {
 		fmt.Printf("文件拆分失败：%v\n", err)
 		return
@@ -154,9 +165,9 @@ func uploadSingleChunk(chunkPath, fileMD5 string, chunkIdx, totalChunks int) err
 	}
 
 	// 设置请求头
-	req.Header.Set(FileMD5Header, fileMD5)
-	req.Header.Set(ChunkIdxHeader, fmt.Sprintf("%d", chunkIdx))
-	req.Header.Set(TotalChunksHeader, fmt.Sprintf("%d", totalChunks))
+	req.Header.Set(common.FileMD5Header, fileMD5)
+	req.Header.Set(common.ChunkIdxHeader, fmt.Sprintf("%d", chunkIdx))
+	req.Header.Set(common.TotalChunksHeader, fmt.Sprintf("%d", totalChunks))
 	req.Header.Set("Content-Type", "application/octet-stream")
 
 	// 发送请求（设置超时时间）

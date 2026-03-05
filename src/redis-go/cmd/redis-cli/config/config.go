@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -13,20 +12,9 @@ import (
 // Config 定义了应用的所有配置项
 type Config struct {
 	Server struct {
-		Address         string `yaml:"address"`          // 服务监听地址，如 ":7000"
-		ClusterMode     bool   `yaml:"cluster_mode"`     // 是否启用集群模式
-		NodeID          string `yaml:"node_id"`          // 节点唯一标识符
-		ClusterPassword string `yaml:"cluster_password"` // 集群管理命令的密码
+		IP   string `yaml:"ip"`   // 服务监听地址，如 "ip"
+		Port string `yaml:"port"` // 端口
 	} `yaml:"server"`
-
-	Replication struct {
-		SlaveOf string `yaml:"slave_of"` // 主节点地址，仅从节点需要配置
-	} `yaml:"replication"`
-
-	Cluster struct {
-		NodeTimeout    time.Duration `yaml:"node_timeout"`    // 节点超时时间
-		GossipInterval time.Duration `yaml:"gossip_interval"` // Gossip协议消息间隔
-	} `yaml:"cluster"`
 
 	Logging struct {
 		Level string `yaml:"level"` // 日志级别: debug, info, warn, error
@@ -38,16 +26,8 @@ func NewDefaultConfig() *Config {
 	cfg := &Config{}
 
 	// 设置默认值
-	cfg.Server.Address = ":6379"
-	cfg.Server.ClusterMode = false
-	cfg.Server.NodeID = "" // 留空表示自动生成
-	cfg.Server.ClusterPassword = ""
-
-	cfg.Replication.SlaveOf = ""
-
-	cfg.Cluster.NodeTimeout = 15 * time.Second
-	cfg.Cluster.GossipInterval = 1 * time.Second
-
+	cfg.Server.IP = "127.0.0.1"
+	cfg.Server.Port = "6379"
 	cfg.Logging.Level = "info"
 
 	return cfg
@@ -233,32 +213,12 @@ func (c *Config) Save(filePath string) error {
 // 合并两个配置，src中的非零值会覆盖dest中的值
 func mergeConfig(dest, src *Config) {
 	// 合并Server配置
-	if src.Server.Address != "" {
-		dest.Server.Address = src.Server.Address
+	if src.Server.IP != "" {
+		dest.Server.IP = src.Server.IP
 	}
-	if src.Server.ClusterMode {
-		dest.Server.ClusterMode = src.Server.ClusterMode
+	if src.Server.Port != "" {
+		dest.Server.Port = src.Server.Port
 	}
-	if src.Server.NodeID != "" {
-		dest.Server.NodeID = src.Server.NodeID
-	}
-	if src.Server.ClusterPassword != "" {
-		dest.Server.ClusterPassword = src.Server.ClusterPassword
-	}
-
-	// 合并Replication配置
-	if src.Replication.SlaveOf != "" {
-		dest.Replication.SlaveOf = src.Replication.SlaveOf
-	}
-
-	// 合并Cluster配置
-	if src.Cluster.NodeTimeout != 0 {
-		dest.Cluster.NodeTimeout = src.Cluster.NodeTimeout
-	}
-	if src.Cluster.GossipInterval != 0 {
-		dest.Cluster.GossipInterval = src.Cluster.GossipInterval
-	}
-
 	// 合并Logging配置
 	if src.Logging.Level != "" {
 		dest.Logging.Level = src.Logging.Level

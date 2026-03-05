@@ -1,4 +1,4 @@
-package main
+package common
 
 import (
 	"crypto/md5"
@@ -12,12 +12,12 @@ import (
 
 // 全局配置（可根据需求调整）
 const (
-	ChunkSize         = 5 * 1024 * 1024    // 分片大小：5MB
-	UploadDir         = "./uploaded_files" // 最终文件存储目录
-	TempChunkDir      = "./temp_chunks"    // 临时分片存储目录
-	FileMD5Header     = "X-File-MD5"       // 请求头：文件唯一标识（MD5）
-	ChunkIdxHeader    = "X-Chunk-Index"    // 请求头：分片索引（从0开始）
-	TotalChunksHeader = "X-Total-Chunks"   // 请求头：总分片数
+	ChunkSize         = 5 * 1024 * 1024         // 分片大小：5MB
+	UploadDir         = "./data/uploaded_files" // 最终文件存储目录
+	TempChunkDir      = "./data/temp_chunks"    // 临时分片存储目录
+	FileMD5Header     = "X-File-MD5"            // 请求头：文件唯一标识（MD5）
+	ChunkIdxHeader    = "X-Chunk-Index"         // 请求头：分片索引（从0开始）
+	TotalChunksHeader = "X-Total-Chunks"        // 请求头：总分片数
 )
 
 // 初始化存储目录

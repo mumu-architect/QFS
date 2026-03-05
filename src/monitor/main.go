@@ -41,7 +41,7 @@ func main() {
 					return false
 				}
 				defer conn.Close()
-				//message := "Hello from master node!"
+				//message := "Hello from master node.go!"
 				//message := NewMonitorSynchronizeSendData('')
 				// 将JSON数据编码为字节流
 				jsonData, err := json.Marshal(message)
