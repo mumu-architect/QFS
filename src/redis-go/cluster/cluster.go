@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -62,7 +63,6 @@ type Cluster struct {
 	serveMux       *http.ServeMux       // 每个节点自己的HTTP路由
 	lastActive     map[int]time.Time    // 节点最后活跃时间（用于故障检测）
 	httpServer     *http.Server         // HTTP服务器实例
-	raftPort       int                  // Raft专用端口
 }
 
 var (
@@ -70,9 +70,10 @@ var (
 )
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, nodeID int, ip string, port int, addr string, masterAddr string) *Cluster {
+func NewCluster(shardID int, nodeID int, ip string, port int, addr1 string, masterAddr string) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
-	dataFile := getDataFilePath(addr)
+	addr := fmt.Sprintf(":%d", port)
+	dataFile := getDataFilePath(nodeID, addr)
 	// 1. 创建当前集群的本地节点
 	localNode := &Node{
 		ShardID:  shardID,

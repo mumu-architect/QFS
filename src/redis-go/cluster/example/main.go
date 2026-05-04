@@ -93,9 +93,9 @@ func main() {
 	// 初始化数据目录（在storage.go中实现）
 	cluster.InitDataDir()
 	//node.ShardID, node.NodeID, node.IP, node.Port
-	go cluster.NewCluster(128, 1, "127.0.0.1", 9001, ":9001", cluster.Master, "127.0.0.1:9001")
-	go cluster.NewCluster(128, 2, "127.0.0.1", 9002, ":9002", cluster.Slave, "127.0.0.1:9001")
-	go cluster.NewCluster(128, 3, "127.0.0.1", 9003, ":9003", cluster.Slave, "127.0.0.1:9001")
+	go cluster.NewCluster(128, 1, "127.0.0.1", 9001, ":9001", "127.0.0.1:9001")
+	go cluster.NewCluster(128, 2, "127.0.0.1", 9002, ":9002", "127.0.0.1:9001")
+	go cluster.NewCluster(128, 3, "127.0.0.1", 9003, ":9003", "127.0.0.1:9001")
 	//go cluster.NewCluster(128, 2, "127.0.0.1", 9002, 1, ":9002", cluster.Master, "127.0.0.1:9001")
 	//go cluster.NewCluster(128, 3, "127.0.0.1", 9003, 1, ":9003", cluster.Master, "127.0.0.1:9001")
 

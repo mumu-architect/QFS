@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,8 +36,8 @@ func InitDataDir() {
 	}
 }
 
-func getDataFilePath(addr string) string {
-	filename := strings.Replace(addr, ":", "_", -1) + ".data"
+func getDataFilePath(nodeId int, addr string) string {
+	filename := strconv.Itoa(nodeId) + strings.Replace(addr, ":", "_", -1) + ".data"
 	return filepath.Join(DataDir, filename)
 }
 
