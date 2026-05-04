@@ -18,14 +18,6 @@ const (
 	SyncBatchSize  = 100             // 主从同步批次大小
 )
 
-// NodeType 节点类型（主/从）
-type NodeType string
-
-const (
-	Master NodeType = "master"
-	Slave  NodeType = "slave"
-)
-
 // NodeStatus 节点状态
 type NodeStatus string
 
@@ -41,7 +33,7 @@ type Node struct {
 	IP       string     `json:"ip"`      // 地址（IP）
 	Port     int        `json:"port"`    // 地址（Port）
 	LeaderID int        `json:"leaderID"`
-	Addr     string     `json:"addr"`   // 地址（IP:Port）
+	Addr     string     `json:"addr"`   // 地址（IP:Port）//TODO:使用的地方比较多
 	Status   NodeStatus `json:"status"` // 在线/离线
 	Slots    []int      `json:"slots"`  // 负责的哈希槽（主节点有效）
 }
@@ -78,7 +70,7 @@ var (
 )
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, nodeID int, ip string, port int, addr string, nodeType NodeType, masterAddr string) *Cluster {
+func NewCluster(shardID int, nodeID int, ip string, port int, addr string, masterAddr string) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	dataFile := getDataFilePath(addr)
 	// 1. 创建当前集群的本地节点
@@ -119,7 +111,7 @@ func NewCluster(shardID int, nodeID int, ip string, port int, addr string, nodeT
 	globalNodes[nodeID] = localNode
 	// 主节点初始化（加载数据+槽分配+落盘任务）
 	//if nodeType == Master {
-	if nodeType == Master {
+	if nodeID == 1 {
 		if err := cluster.loadPersistedData(); err != nil {
 			log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
 		} else {
@@ -162,7 +154,7 @@ func NewCluster(shardID int, nodeID int, ip string, port int, addr string, nodeT
 	cluster.registerAllHandlers()
 	go cluster.startHTTPAPI()
 
-	log.Printf("节点 %s 启动成功（类型：%s）", addr, nodeType)
+	log.Printf("节点 %s 启动成功（类型：%s）", addr)
 	return cluster
 }
 
