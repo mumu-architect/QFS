@@ -42,17 +42,8 @@ type Node struct {
 	Port     int        `json:"port"`    // 地址（Port）
 	LeaderID int        `json:"leaderID"`
 	Addr     string     `json:"addr"`   // 地址（IP:Port）
-	Type     NodeType   `json:"type"`   // 主/从
 	Status   NodeStatus `json:"status"` // 在线/离线
 	Slots    []int      `json:"slots"`  // 负责的哈希槽（主节点有效）
-	//MasterID int        `json:"master_id"` // 从节点对应的主节点ID
-}
-
-// ClusterState 集群状态结构体（用于节点间同步）
-type ClusterState struct {
-	Nodes    map[int]*Node   `json:"nodes"`
-	SlotMap  map[int]string  `json:"slotMap"`
-	Replicas map[int][]*Node `json:"replicas"`
 }
 
 // Cluster 集群核心结构体
@@ -61,7 +52,6 @@ type Cluster struct {
 	LocalNode *Node // 本地节点
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
 	Nodes          map[int]*Node       // 集群所有节点（ID->Node）
-	RaftNodes      map[string]*Node    //Raft所有节点，（ID->Node）
 	slotMap        map[int]string      // 哈希槽->主节点ID映射
 	dataStore      interface{}         // 本地存储（主节点读写，从节点同步）
 	replicas       map[int][]*Node     // 主节点ID->从节点列表映射
@@ -99,17 +89,14 @@ func NewCluster(shardID int, nodeID int, ip string, port int, addr string, nodeT
 		Port:     port,
 		Addr:     addr,
 		LeaderID: 1,
-		Type:     nodeType,
 		Status:   Online,
 		Slots:    []int{},
-		//MasterID: 1,
 	}
 	cluster := &Cluster{
 		LocalNode: localNode,
 		//Nodes:     make(map[string]*Node),
-		Nodes:     make(map[int]*Node),
-		RaftNodes: make(map[string]*Node),
-		slotMap:   make(map[int]string),
+		Nodes:   make(map[int]*Node),
+		slotMap: make(map[int]string),
 		// 初始化RedisData（替换原dataStore := make(map[string]string)）
 		dataStore:      nil,
 		replicas:       make(map[int][]*Node),
@@ -159,9 +146,9 @@ func NewCluster(shardID int, nodeID int, ip string, port int, addr string, nodeT
 			Port:     port,
 			Addr:     addr,
 			LeaderID: 1,
-			Type:     nodeType,
-			Status:   Online,
-			Slots:    []int{},
+			//Type:     nodeType,
+			Status: Online,
+			Slots:  []int{},
 		}
 		cluster.Nodes[nodeID] = masterNode
 
@@ -187,7 +174,6 @@ func (c *Cluster) persistDataLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			//if c.LocalNode.Type == Master {
 			if c.LocalNode.LeaderID == c.LocalNode.NodeID {
 				if err := c.persistData(); err != nil {
 					log.Printf("主节点 %s 数据持久化失败：%v", c.LocalNode.Addr, err)

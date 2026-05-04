@@ -18,33 +18,34 @@ const (
 	RoleSlave  ReplicationRole = "slave"
 )
 
-type NodeState string
+//
+//type NodeState string
+//
+//const (
+//	NodeStateOnline NodeState = "online"
+//	NodeStatePFail  NodeState = "pfail"
+//	NodeStateFail   NodeState = "fail"
+//)
 
-const (
-	NodeStateOnline NodeState = "online"
-	NodeStatePFail  NodeState = "pfail"
-	NodeStateFail   NodeState = "fail"
-)
+//type ClusterNode struct {
+//	ID           string
+//	Addr         string
+//	Role         ReplicationRole
+//	Slots        []int // 简化为存储所有槽位，而非范围
+//	MasterID     string
+//	LastSeen     time.Time
+//	State        NodeState
+//	PfailReports int
+//}
 
-type ClusterNode struct {
-	ID           string
-	Addr         string
-	Role         ReplicationRole
-	Slots        []int // 简化为存储所有槽位，而非范围
-	MasterID     string
-	LastSeen     time.Time
-	State        NodeState
-	PfailReports int
-}
-
-type ClusterState struct {
-	sync.RWMutex
-	Self           *ClusterNode
-	Nodes          map[string]*ClusterNode
-	SlotMap        [TotalSlots]string // slot -> nodeID
-	migratingSlots map[int]string     // slot -> target node.go ID
-	importingSlots map[int]string     // slot -> source node.go ID
-}
+//type ClusterState struct {
+//	sync.RWMutex
+//	Self           *ClusterNode
+//	Nodes          map[string]*ClusterNode
+//	SlotMap        [TotalSlots]string // slot -> nodeID
+//	migratingSlots map[int]string     // slot -> target node.go ID
+//	importingSlots map[int]string     // slot -> source node.go ID
+//}
 
 func NewClusterState(selfID, selfAddr string) *ClusterState {
 	self := &ClusterNode{

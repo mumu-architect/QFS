@@ -58,20 +58,3 @@ func Curl(url string) {
 
 	log.Printf("curl %s 结果：%s", url, result)
 }
-
-// fetchClusterState 从指定节点拉取集群状态
-func FetchClusterState(addr string) (*ClusterState, error) {
-	url := fmt.Sprintf("http://%s/clusterState", addr)
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("请求节点 %s 失败：%v", addr, err)
-	}
-	defer resp.Body.Close()
-
-	var state ClusterState
-	if err := json.NewDecoder(resp.Body).Decode(&state); err != nil {
-		return nil, fmt.Errorf("解析集群状态失败：%v", err)
-	}
-
-	return &state, nil
-}

@@ -160,7 +160,6 @@ func (c *Cluster) HSet(key, field, val string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	//if c.LocalNode.Type == Slave {
 	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
 		return fmt.Errorf("从节点不支持写操作")
 	}
@@ -309,9 +308,8 @@ func (c *Cluster) Set(key, val string) error {
 	defer c.mu.Unlock()
 
 	// 从节点拒绝写操作
-	//if c.LocalNode.Type == Slave {
 	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
-		return fmt.Errorf("从节点不支持写操作（节点类型：%s）", c.LocalNode.Type)
+		return fmt.Errorf("从节点不支持写操作（节点类型：%v \n", c.LocalNode.LeaderID)
 	}
 
 	// 计算槽位，路由到目标主节点
@@ -387,7 +385,6 @@ func (c *Cluster) HMSet(key string, fieldVals map[string]string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	//if c.LocalNode.Type == Slave {
 	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
 		return fmt.Errorf("从节点不支持写操作")
 	}
