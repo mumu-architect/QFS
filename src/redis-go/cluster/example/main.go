@@ -38,8 +38,9 @@ func main() {
 		// 测试向从节点 6382 写入数据，它应该已经升级为新的主节点
 		log.Println("----------测试向从节点 9001 写入数据-----------")
 		cluster.Curl("http://localhost:9001/Set?key=test:failover1&val=failover_value1")
+		cluster.Curl("http://localhost:9001/Get?key=test:failover1")
 		// 测试向从节点 6382 写入 Hash 类型数据
-		//cluster.Curl("http://localhost:6379/HSet?key=test:failover&field=status&val=success")
+		//cluster.Curl("http://localhost:9001/HSet?key=test:failover&field=status&val=success")
 		//cluster.Curl("http://localhost:6379/HSet?key=test:failover&field=time&val=2026-01-22")
 		//cluster.Curl("http://localhost:6379/HSet?key=test:failover2&field=time&val=2026-01-22")
 		// 测试向从节点 6385 写入数据，它也可能被选举为新的主节点
@@ -105,7 +106,7 @@ func main() {
 	*/
 	// 保持主线程运行
 	log.Println("=== 主线程开始运行 ===")
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 100; i++ {
 		log.Printf("主线程运行中，第 %d 秒", i)
 		time.Sleep(1 * time.Second)
 	}
