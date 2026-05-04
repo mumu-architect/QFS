@@ -1,1 +1,1 @@
-{"string":{"test:failover1":"failover_value1"},"hash":{"test:failover":{"status":"success"}}}
+{"string":{},"hash":{"test:failover":{"status2":"56454"}}}

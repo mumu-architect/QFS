@@ -1,11 +1,11 @@
 package cluster
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,91 +13,8 @@ import (
 // registerAllHandlers 注册所有HTTP接口
 // registerAllHandlers 注册所有HTTP接口（新增缩容接口）
 func (c *Cluster) registerAllHandlers() {
-	c.registerBaseHandlers()
 	c.registerDataHandlers()
-	c.registerRaftHandlers()
-	c.registerGossipHandlers()
 	c.registerSyncHandlers()
-	c.registerScaleHandlers()
-	c.registerShrinkHandlers() // 新增：注册缩容接口
-}
-
-// registerBaseHandlers 注册基础接口（集群状态、节点退出、新节点加入）
-func (c *Cluster) registerBaseHandlers() {
-	// 1. 获取集群状态
-	c.serveMux.HandleFunc("/clusterState", func(w http.ResponseWriter, r *http.Request) {
-		c.mu.RLock()
-		defer c.mu.RUnlock()
-
-		state := ClusterState{
-			Nodes:    c.Nodes,
-			SlotMap:  c.slotMap,
-			Replicas: c.replicas,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(state)
-	})
-
-	// 2. 节点退出
-	c.serveMux.HandleFunc("/shutdown", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("节点 %s 收到退出命令，开始关闭", c.LocalNode.Addr)
-		// 标记为离线
-		c.mu.Lock()
-		c.LocalNode.Status = Offline
-		c.mu.Unlock()
-		// 触发强制落盘（主从节点均落盘）
-		if c.LocalNode.Type == Master {
-			c.persistData()
-		} else {
-			c.persistSlaveData()
-		}
-		// 关闭HTTP服务
-		if c.httpServer != nil {
-			log.Printf("关闭节点 %s 的HTTP服务", c.LocalNode.Addr)
-			if err := c.httpServer.Shutdown(context.Background()); err != nil {
-				log.Printf("关闭HTTP服务失败：%v", err)
-			} else {
-				log.Printf("HTTP服务关闭成功")
-			}
-		}
-		// 关闭上下文
-		c.cancel()
-		json.NewEncoder(w).Encode("节点关闭成功")
-	})
-
-	// 3. 新节点加入集群（从现有节点拉取集群状态）
-	c.serveMux.HandleFunc("/joinCluster", func(w http.ResponseWriter, r *http.Request) {
-		existingAddr := r.URL.Query().Get("existingAddr")
-		if existingAddr == "" {
-			http.Error(w, "现有节点地址不能为空", http.StatusBadRequest)
-			return
-		}
-
-		// 从现有节点拉取集群状态
-		state, err := FetchClusterState(existingAddr)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("拉取集群状态失败：%v", err), http.StatusInternalServerError)
-			return
-		}
-
-		// 合并集群状态到本地
-		c.mu.Lock()
-		c.Nodes = state.Nodes
-		c.slotMap = state.SlotMap
-		c.replicas = state.Replicas
-		// 将当前新节点添加到集群节点列表
-		c.Nodes[c.LocalNode.ID] = c.LocalNode
-		// 如果是从节点，添加到主节点的副本列表
-		if c.LocalNode.Type == Slave && c.LocalNode.MasterID != "" {
-			c.replicas[c.LocalNode.MasterID] = append(c.replicas[c.LocalNode.MasterID], c.LocalNode)
-		}
-		c.mu.Unlock()
-
-		// 广播新节点加入消息
-		c.broadcastClusterState()
-		log.Printf("节点 %s 成功加入集群", c.LocalNode.Addr)
-		json.NewEncoder(w).Encode("加入集群成功")
-	})
 }
 
 // registerDataHandlers 注册数据操作接口（新增HGet/HSet）
@@ -243,7 +160,8 @@ func (c *Cluster) HSet(key, field, val string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.LocalNode.Type == Slave {
+	//if c.LocalNode.Type == Slave {
+	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
 		return fmt.Errorf("从节点不支持写操作")
 	}
 
@@ -252,9 +170,9 @@ func (c *Cluster) HSet(key, field, val string) error {
 	log.Printf("HSet：计算槽位：key=%s, slot=%d", key, slot)
 	masterID := c.slotMap[slot]
 	log.Printf("HSet：槽位映射：slot=%d, masterID=%s", slot, masterID)
-	log.Printf("HSet：本地节点ID：%s", c.LocalNode.ID)
-
-	if masterID == c.LocalNode.ID {
+	log.Printf("HSet：本地节点ID：%s", c.LocalNode.NodeID)
+	masterID2, _ := strconv.Atoi(masterID)
+	if masterID2 == c.LocalNode.NodeID {
 		// 本地存储
 		log.Printf("HSet：本地存储：key=%s, field=%s, val=%s", key, field, val)
 		c.setHashData(key, field, val)
@@ -266,7 +184,7 @@ func (c *Cluster) HSet(key, field, val string) error {
 	}
 
 	// 路由到其他主节点
-	targetNode, exists := c.Nodes[masterID]
+	targetNode, exists := c.Nodes[masterID2]
 	if !exists || targetNode.Status != Online {
 		log.Printf("HSet：目标主节点不可用：masterID=%s", masterID)
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
@@ -286,25 +204,28 @@ func (c *Cluster) HGet(key, field string) (string, error) {
 	// 哈希槽路由（按key计算槽位）
 	slot := c.calcSlot(key)
 	masterID := c.slotMap[slot]
-
+	//masterID2, _ := strconv.Atoi(masterID)
+	fmt.Printf("111=========%v \n", masterID)
+	masterID2, _ := strconv.Atoi(masterID)
 	// 本地查询
 	if val, exists := c.getHashData(key, field); exists {
 		log.Printf("本地HGet：key=%s, field=%s, val=%s（槽位：%d）", key, field, val, slot)
 		return val, nil
 	}
-
+	fmt.Printf("2222=========%v \n", masterID)
 	// 路由到主节点查询
-	targetNode, exists := c.Nodes[masterID]
+	targetNode, exists := c.Nodes[masterID2]
 	if !exists || targetNode.Status != Online {
 		return "", fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
-
+	fmt.Printf("3333=========%v \n", masterID)
 	log.Printf("路由HGet到节点 %s：key=%s（槽位：%d）", targetNode.Addr, key, slot)
 	val, err := c.routeToNode(targetNode.Addr, "HGet", key, "", "field", field)
 	if err != nil {
 		return "", err
 	}
 
+	fmt.Printf("4444=========%v \n", masterID)
 	// 解析Hash响应
 	var hgetResp map[string]string
 	if err := json.Unmarshal([]byte(val), &hgetResp); err != nil {
@@ -362,56 +283,6 @@ func (c *Cluster) getFullData() map[string]interface{} {
 	}
 }
 
-// registerScaleHandlers 注册集群扩容接口（重分片）
-// registerScaleHandlers 注册扩容相关HTTP接口
-func (c *Cluster) registerScaleHandlers() {
-	// 触发集群扩容（指定新主节点ID）
-	http.HandleFunc(fmt.Sprintf("/%s/scale", c.LocalNode.Addr), func(w http.ResponseWriter, r *http.Request) {
-		newMasterID := r.URL.Query().Get("newMasterID")
-		if newMasterID == "" {
-			http.Error(w, "新主节点ID不能为空", http.StatusBadRequest)
-			return
-		}
-
-		// 校验发起节点权限（必须是主节点）
-		c.mu.RLock()
-		isMaster := c.LocalNode.Type == Master
-		c.mu.RUnlock()
-		if !isMaster {
-			http.Error(w, "仅主节点可发起扩容操作", http.StatusForbidden)
-			return
-		}
-
-		err := c.scaleCluster(newMasterID)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("扩容失败：%v", err), http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode("扩容成功")
-	})
-
-	// 查询集群主节点分布（便于扩容决策）
-	http.HandleFunc(fmt.Sprintf("/%s/masterDistribution", c.LocalNode.Addr), func(w http.ResponseWriter, r *http.Request) {
-		c.mu.RLock()
-		distribution := make(map[string]map[string]interface{})
-		for id, node := range c.Nodes {
-			if node.Type == Master {
-				distribution[id] = map[string]interface{}{
-					"addr":         node.Addr,
-					"status":       node.Status,
-					"slotCount":    len(node.Slots),
-					"replicaCount": len(c.replicas[id]),
-				}
-			}
-		}
-		c.mu.RUnlock()
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(distribution)
-	})
-}
-
 // startHTTPAPI 启动HTTP服务
 func (c *Cluster) startHTTPAPI() {
 	// 监听地址（与节点地址一致）
@@ -438,17 +309,18 @@ func (c *Cluster) Set(key, val string) error {
 	defer c.mu.Unlock()
 
 	// 从节点拒绝写操作
-	if c.LocalNode.Type == Slave {
+	//if c.LocalNode.Type == Slave {
+	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
 		return fmt.Errorf("从节点不支持写操作（节点类型：%s）", c.LocalNode.Type)
 	}
 
 	// 计算槽位，路由到目标主节点
 	slot := c.calcSlot(key)
 	masterID := c.slotMap[slot]
-	log.Printf("Set操作：key=%s, val=%s, 计算槽位=%d, 目标主节点ID=%s, 本地节点ID=%s", key, val, slot, masterID, c.LocalNode.ID)
-
+	log.Printf("Set操作：key=%s, val=%s, 计算槽位=%d, 目标主节点ID=%s, 本地节点ID=%s", key, val, slot, masterID, c.LocalNode.NodeID)
+	masterID2, _ := strconv.Atoi(masterID)
 	// 目标主节点是自身，直接写入
-	if masterID == c.LocalNode.ID {
+	if masterID2 == c.LocalNode.NodeID {
 		c.setStringData(key, val)
 		c.recentChanges[key] = time.Now()
 		log.Printf("本地写入数据：key=%s, val=%s（槽位：%d）", key, val, slot)
@@ -459,7 +331,7 @@ func (c *Cluster) Set(key, val string) error {
 
 	// 目标主节点是其他节点，路由转发
 	log.Printf("目标主节点不是自身，从Nodes中查找目标主节点：masterID=%s", masterID)
-	targetNode, exists := c.Nodes[masterID]
+	targetNode, exists := c.Nodes[masterID2]
 	if !exists {
 		log.Printf("目标主节点不存在：masterID=%s", masterID)
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
@@ -489,9 +361,9 @@ func (c *Cluster) Get(key string) (string, error) {
 		log.Printf("本地读取数据：key=%s, val=%s（槽位：%d）", key, val, slot)
 		return val, nil
 	}
-
+	masterID2, _ := strconv.Atoi(masterID)
 	// 本地无数据，路由到主节点读取
-	targetNode, exists := c.Nodes[masterID]
+	targetNode, exists := c.Nodes[masterID2]
 	if !exists || targetNode.Status != Online {
 		return "", fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -515,15 +387,16 @@ func (c *Cluster) HMSet(key string, fieldVals map[string]string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if c.LocalNode.Type == Slave {
+	//if c.LocalNode.Type == Slave {
+	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
 		return fmt.Errorf("从节点不支持写操作")
 	}
 
 	// 批量操作路由：按key计算主节点（确保同一key的批量操作路由到同一节点）
 	slot := c.calcSlot(key)
 	masterID := c.slotMap[slot]
-
-	if masterID == c.LocalNode.ID {
+	masterID2, _ := strconv.Atoi(masterID)
+	if masterID2 == c.LocalNode.NodeID {
 		// 本地批量存储
 		// 逐字段写入本地 Hash
 		for field, val := range fieldVals {
@@ -536,9 +409,9 @@ func (c *Cluster) HMSet(key string, fieldVals map[string]string) error {
 		}
 		return nil
 	}
-
+	//masterID2, _ = strconv.Atoi(masterID)
 	// 路由到其他主节点（构造批量参数）
-	targetNode, exists := c.Nodes[masterID]
+	targetNode, exists := c.Nodes[masterID2]
 	if !exists || targetNode.Status != Online {
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -571,7 +444,8 @@ func (c *Cluster) HMGet(key string, fields []string) (map[string]string, error) 
 	}
 
 	// 路由到主节点查询（补充未命中字段）
-	targetNode, exists := c.Nodes[masterID]
+	masterID2, _ := strconv.Atoi(masterID)
+	targetNode, exists := c.Nodes[masterID2]
 	if !exists || targetNode.Status != Online {
 		return nil, fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -589,8 +463,8 @@ func (c *Cluster) HMGet(key string, fields []string) (map[string]string, error) 
 func (c *Cluster) routeToNode(addr, cmd, key, val string, extra ...interface{}) (string, error) {
 	// 构建请求URL
 	url := fmt.Sprintf("http://%s/%s?key=%s&val=%s", addr, cmd, key, val)
-	println("33333333333333333")
-	println("url:" + url)
+
+	println("================url:" + url)
 	// 添加额外参数（如槽位、目标地址）
 	for i := 0; i < len(extra); i += 2 {
 		if i+1 >= len(extra) {
@@ -600,30 +474,34 @@ func (c *Cluster) routeToNode(addr, cmd, key, val string, extra ...interface{}) 
 		paramVal := fmt.Sprintf("%v", extra[i+1])
 		url += fmt.Sprintf("&%s=%s", paramKey, paramVal)
 	}
-
+	fmt.Printf("3333333333333333333")
 	// 发送请求
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("请求节点 %s 失败：%v", addr, err)
 	}
 	defer resp.Body.Close()
-
+	fmt.Printf("4444444444444444444")
 	// 读取响应
 	var result map[string]string
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	err2 := json.NewDecoder(resp.Body).Decode(&result)
+	if err2 != nil {
 		// 尝试将响应解析为一个字符串
+		fmt.Printf("5555555555555555555")
 		var strResult string
-		if err := json.NewDecoder(resp.Body).Decode(&strResult); err != nil {
+		err3 := json.NewDecoder(resp.Body).Decode(&strResult)
+		if err3 != nil {
 			return "", fmt.Errorf("解析节点 %s 响应失败：%v", addr, err)
 		}
+		fmt.Printf("66666666666666666")
 		return strResult, nil
 	}
-
+	fmt.Printf("77777777777777777")
 	// 如果是 HGet 命令，返回 val 字段
 	if cmd == "HGet" {
 		return result["val"], nil
 	}
-
+	fmt.Printf("888888888888888888")
 	return "", nil
 }
 

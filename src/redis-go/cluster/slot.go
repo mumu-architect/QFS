@@ -1,6 +1,9 @@
 package cluster
 
-import "log"
+import (
+	"log"
+	"strconv"
+)
 
 // calcSlot 计算key对应的哈希槽（与Redis一致：CRC16简化版）
 func (c *Cluster) calcSlot(key string) int {
@@ -28,7 +31,7 @@ func (c *Cluster) initSlots() {
 	}
 	for i := startSlot; i <= endSlot; i++ {
 		c.LocalNode.Slots = append(c.LocalNode.Slots, i)
-		c.slotMap[i] = c.LocalNode.ID
+		c.slotMap[i] = strconv.Itoa(c.LocalNode.NodeID)
 	}
 	log.Printf("槽位映射初始化完成，共映射 %d 个槽位", len(c.LocalNode.Slots))
 }

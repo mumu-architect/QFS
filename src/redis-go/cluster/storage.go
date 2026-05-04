@@ -93,7 +93,8 @@ func (c *Cluster) loadPersistedData() error {
 
 // 从节点数据落盘（同主节点格式）
 func (c *Cluster) persistSlaveData() error {
-	if c.LocalNode.Type != Slave {
+	//if c.LocalNode.Type != Slave {
+	if c.LocalNode.LeaderID == c.LocalNode.NodeID {
 		return nil
 	}
 

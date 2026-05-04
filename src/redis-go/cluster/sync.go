@@ -187,8 +187,6 @@ func (c *Cluster) registerSyncHandlers() {
 		delete(c.importingSlots, slot)
 		c.mu.Unlock()
 
-		// 广播集群状态
-		c.broadcastClusterState()
 		log.Printf("槽位 %d 迁移确认完成，新主节点：%s", slot, newMasterID)
 		json.NewEncoder(w).Encode("确认成功")
 	})
@@ -241,6 +239,7 @@ func (c *Cluster) syncFromMaster(masterAddr string) error {
 
 	// 循环同步直到完成全量数据
 	for {
+		time.Sleep(5 * time.Second)
 		// 带偏移量请求同步数据
 		//TODO:
 		url := fmt.Sprintf("http://%s/syncWithOffset?offset=%d&batchSize=%d",
@@ -368,11 +367,12 @@ func (c *Cluster) fetchMasterChanges(masterAddr string) (map[string]interface{},
 // syncToReplicas 主节点推送数据到所有从节点
 // 适配：更新 syncToReplicas 支持 String/Hash 双类型推送
 func (c *Cluster) syncToReplicas(changeKey, val string) {
+	fmt.Println("00000000000000000000")
 	c.mu.RLock()
-	replicas := c.replicas[c.LocalNode.ID]
+	replicas := c.replicas[c.LocalNode.NodeID]
 	redisData := c.dataStore.(RedisData)
 	c.mu.RUnlock()
-
+	fmt.Println("3333333333333333333333")
 	if len(replicas) == 0 {
 		return
 	}
@@ -402,13 +402,17 @@ func (c *Cluster) syncToReplicas(changeKey, val string) {
 	for _, replica := range replicas {
 		if replica.Status == Online {
 			wg.Add(1)
-			go func(addr string) {
+			//go func(addr string) {
+			func(addr string) {
 				defer wg.Done()
+				fmt.Println("33333333333333333")
 				//TODO: 构建带类型参数的同步URL
 				url := fmt.Sprintf("http://%s/syncData?type=%s&key=%s&field=%s&val=%s",
 					replica.Addr, dataType, key, field, val)
 				//url := fmt.Sprintf("http://127.0.0.1:9000/syncData?type=%s&key=%s&field=%s&val=%s",
 				//	dataType, key, field, val)
+				fmt.Printf("123456========http://127.0.0.1:9000/syncData?type=%s&key=%s&field=%s&val=%s",
+					dataType, key, field, val)
 				resp, err := http.Get(url)
 				if err != nil {
 					log.Printf("同步到从节点 %s 失败：%v", addr, err)

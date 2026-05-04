@@ -3,11 +3,12 @@ package cluster
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 )
 
 // 扩容核心逻辑：将现有主节点的槽位均分至新主节点，同步数据并更新集群映射
-func (c *Cluster) scaleCluster(newMasterID string) error {
+func (c *Cluster) scaleCluster(newMasterID int) error {
 	c.reshardingLock.Lock()
 	defer c.reshardingLock.Unlock()
 
@@ -18,7 +19,9 @@ func (c *Cluster) scaleCluster(newMasterID string) error {
 		c.mu.RUnlock()
 		return fmt.Errorf("新主节点 %s 不存在", newMasterID)
 	}
-	if newMaster.Type != Master {
+
+	//if newMaster.Type != Master {
+	if newMaster.LeaderID != newMaster.NodeID {
 		c.mu.RUnlock()
 		return fmt.Errorf("节点 %s 不是主节点，无法参与扩容", newMaster.Addr)
 	}
@@ -30,7 +33,8 @@ func (c *Cluster) scaleCluster(newMasterID string) error {
 	// 2. 收集现有在线主节点（排除新主节点）
 	existingMasters := make([]*Node, 0)
 	for _, node := range c.Nodes {
-		if node.Type == Master && node.ID != newMasterID && node.Status == Online {
+		//		if node.Type == Master && node.NodeID != newMasterID && node.Status == Online {
+		if node.LeaderID == node.NodeID && node.NodeID != newMasterID && node.Status == Online {
 			existingMasters = append(existingMasters, node)
 		}
 	}
@@ -116,7 +120,7 @@ func (c *Cluster) scaleCluster(newMasterID string) error {
 func (c *Cluster) migrateSlotForScale(sourceMaster, newMaster *Node, slot int) error {
 	// 1. 标记槽位为迁移中（防止并发操作）
 	c.mu.Lock()
-	c.migratingSlots[slot] = newMaster.ID
+	c.migratingSlots[slot] = newMaster.NodeID
 	c.mu.Unlock()
 	defer func() {
 		c.mu.Lock()
@@ -146,10 +150,8 @@ func (c *Cluster) migrateSlotForScale(sourceMaster, newMaster *Node, slot int) e
 		}
 	}
 	// 更新全局槽位映射
-	c.slotMap[slot] = newMaster.ID
+	c.slotMap[slot] = strconv.Itoa(newMaster.NodeID)
 	c.mu.Unlock()
 
-	// 5. 广播集群状态（确保所有节点同步槽位变更）
-	c.broadcastClusterState()
 	return nil
 }
