@@ -131,6 +131,7 @@ func NewCluster(shardID int, nodeID int, ip string, port int, addr string, nodeT
 	cluster.initRedisData()
 	globalNodes[nodeID] = localNode
 	// 主节点初始化（加载数据+槽分配+落盘任务）
+	//if nodeType == Master {
 	if nodeType == Master {
 		if err := cluster.loadPersistedData(); err != nil {
 			log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
