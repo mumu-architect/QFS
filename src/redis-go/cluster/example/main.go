@@ -1,26 +1,32 @@
 package main
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/lni/goutils/syncutil"
 	"mumu.com/redis-go/cluster"
+	"mumu.com/redis-go/cluster/dragonboatRaft"
 )
 
 type Node struct {
-	ShardID    int
-	NodeID     int
-	IP         string
-	Port       int
-	MasterId   string
-	MasterAddr string
-	ShardIDS   string
-	//Type       string
-	Peers    string // shard下所有集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
-	NodeInfo string //所有集群节点a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	ShardID      int
+	NodeID       int
+	ShardIDS     string
+	IP           string
+	Port         int
+	Peers        string // shard下所有集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	NodeInfo     string //所有集群节点a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	RaftPort     int
+	RaftPeers    string // shard下所有集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	RaftNodeInfo string //所有集群节点a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
 }
 type RequestType uint64
 
@@ -53,169 +59,243 @@ func printUsage() {
 }
 
 func main() {
-	// go run main.go --shardID 128 --id 1 --ip 127.0.0.1 --port 19001 --shardIDS "128,129" --peers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --nodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
-	// go run main.go --shardID 128 --id 2 --ip 127.0.0.1 --port 19002 --shardIDS "128,129" --peers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --nodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
-	// go run main.go --shardID 128 --id 3 --ip 127.0.0.1 --port 19003 --shardIDS "128,129" --peers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --nodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
-	// go run main.go --shardID 129 --id 4 --ip 127.0.0.1 --port 19004 --shardIDS "128,129" --peers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --nodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
-	// go run main.go --shardID 129 --id 5 --ip 127.0.0.1 --port 19005 --shardIDS "128,129" --peers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --nodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
-	// go run main.go --shardID 129 --id 6 --ip 127.0.0.1 --port 19006 --shardIDS "128,129" --peers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --nodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
+	// go run main.go --shardID 128 --id 1 --shardIDS "128,129" --ip 127.0.0.1 --port 9001 --peers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --raftPort 19001  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
+	// go run main.go --shardID 128 --id 2 --shardIDS "128,129" --ip 127.0.0.1 --port 9002 --peers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --raftPort 19002  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
+	// go run main.go --shardID 128 --id 3 --shardIDS "128,129" --ip 127.0.0.1 --port 9003 --peers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --raftPort 19003  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
+	// go run main.go --shardID 129 --id 4 --shardIDS "128,129" --ip 127.0.0.1 --port 9004 --peers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --raftPort 19004  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
+	// go run main.go --shardID 129 --id 5 --shardIDS "128,129" --ip 127.0.0.1 --port 9005 --peers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --raftPort 19005  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
+	// go run main.go --shardID 129 --id 6 --shardIDS "128,129" --ip 127.0.0.1 --port 9006 --peers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --raftPort 19006  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
 	//
 	/*
+	 */
+	var node Node
+	flag.IntVar(&node.ShardID, "shardID", 0, "端口 1/2/3")
+	flag.IntVar(&node.NodeID, "id", 0, "1/2/3")
+	flag.StringVar(&node.ShardIDS, "shardIDS", "128,129", "ShardIDS")
+	flag.StringVar(&node.IP, "ip", "127.0.0.1", "IP")
+	flag.IntVar(&node.Port, "port", 0, "端口 9001/9002/9003")
+	flag.StringVar(&node.Peers, "peers", "", "集群所有节点 1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003")
+	flag.StringVar(&node.NodeInfo, "nodeInfo", "", "集群所有节点 1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003")
 
-		var node Node
-		flag.IntVar(&node.ShardID, "shardID", 0, "端口 1/2/3")
-		flag.IntVar(&node.NodeID, "id", 0, "1/2/3")
-		flag.StringVar(&node.IP, "ip", "127.0.0.1", "IP")
-		flag.IntVar(&node.Port, "port", 0, "端口 9001/9002/9003")
-		flag.StringVar(&node.ShardIDS, "shardIDS", "128,129", "ShardIDS")
-		flag.StringVar(&node.Peers, "peers", "", "集群所有节点 1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003")
-		flag.StringVar(&node.NodeInfo, "nodeInfo", "", "集群所有节点 1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003")
+	flag.IntVar(&node.RaftPort, "raftPort", 0, "端口 19001/19002/19003")
+	flag.StringVar(&node.RaftPeers, "raftPeers", "", "集群所有节点 1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003")
+	flag.StringVar(&node.RaftNodeInfo, "raftNodeInfo", "", "集群所有节点 1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003")
 
-		flag.Parse()
-		if node.ShardID == 0 || node.NodeID == 0 || node.IP == "" || node.Port == 0 || node.ShardIDS == "" || node.Peers == "" || node.NodeInfo == "" {
-			log.Fatal("必须输入--ShardID --id --ip --port --masterAddr --type --raftAddr --peers")
+	flag.Parse()
+	if node.ShardID == 0 || node.NodeID == 0 || node.ShardIDS == "" || node.IP == "" || node.Port == 0 || node.Peers == "" || node.NodeInfo == "" || node.RaftPort == 0 || node.RaftPeers == "" || node.RaftNodeInfo == "" {
+		log.Fatal("必须输入--ShardID --NodeID --ShardIDS  --ip --port --peers  --NodeInfo --RaftPort --RaftPeers --raftNodeInfo")
+	}
+
+	nh := dragonboatRaft.NewDragonBoatRaftNode(node.ShardID, node.NodeID, node.RaftPeers, node.RaftNodeInfo)
+	nodeMeta := dragonboatRaft.InitMeta(node.ShardID, node.NodeID, node.IP, node.RaftPort, node.ShardIDS, node.RaftPeers, node.RaftNodeInfo)
+	//TODO: 初始化槽信息，首次平均分配槽
+	//TODO: get qfs_meta:9999:NodeSlotMetas
+	go dragonboatRaft.StartSlotWrite(nh, nodeMeta)
+	//TODO:存储每个shardID: qfs_meta:9999:128 qfs_meta:9999:129
+	go nodeMeta.StartMetaWrite(nh, nodeMeta)
+	//TODO:leader变更，修改槽对应新的leaderID
+	//TODO:存储leaderID: get qfs_meta:9999:129:ShardNodeLeaderID get qfs_meta:9999:128:ShardNodeLeaderID [已测]
+	go dragonboatRaft.Start(nh, nodeMeta)
+
+	//TODO:去leaderID
+	//get qfs_meta:9999:129:ShardNodeLeaderID
+	//query key: qfs_meta:9999:129:ShardNodeLeaderID, result: {"shardID":129,"leaderID":4}
+	//GetShardNodeLeaderID
+	//nodeMeta.GetShardNodeLeaderID(nh,nodeMeta,node.ShardID)
+	//TODO:取槽信息
+	//get qfs_meta:9999:NodeSlotMetas
+	//query key: qfs_meta:9999:NodeSlotMetas, result: {"nodeSlotMetas":{"0":{"shardID":128,"slots":{"0":{"StartSlotID":0,"EndSlotID":8191}}},"1":{"shardID":129,"slots":{"0":{"StartSlotID":8192,"EndSlotID":16383}}}}}
+
+	go func() {
+		time.Sleep(20 * time.Second)
+		nodeSlotMetas, err := dragonboatRaft.GetSolt(nh, nodeMeta)
+		if err != nil {
+			fmt.Printf("1111====dragonboatRaft.GetSolt error:%v \n", err)
+		}
+		fmt.Printf("1111====dragonboatRaft.GetSolt data:%v \n", nodeSlotMetas)
+
+		shardNodeLeaderID, err := nodeMeta.GetShardNodeLeaderID(nh, nodeMeta, node.ShardID)
+		if err != nil {
+			fmt.Printf("222====nodeMeta.GetShardNodeLeaderID error:%v \n", err)
+		}
+		fmt.Printf("222====nodeMeta.GetShardNodeLeaderID data:%v \n", shardNodeLeaderID)
+
+		//TODO:暂时的leaderID
+		leaderId := 0
+		masterAddr := ""
+		if node.NodeID <= 3 {
+			leaderId = 1
+			masterAddr = "127.0.0.1:9001"
+		}
+		if node.NodeID >= 4 {
+			leaderId = 3
+			masterAddr = "127.0.0.1:9004"
 		}
 
-		nh := dragonboatRaft.NewDragonBoatRaftNode(node.ShardID, node.NodeID, node.Peers, node.NodeInfo)
-		nodeMeta := dragonboatRaft.InitMeta(node.ShardID, node.NodeID, node.IP, node.Port, node.ShardIDS, node.Peers, node.NodeInfo)
-		//TODO: 初始化槽信息，首次平均分配槽
-		//TODO: get qfs_meta:9999:NodeSlotMetas
-		go dragonboatRaft.StartSlotWrite(nh, nodeMeta)
-		//TODO:存储每个shardID: qfs_meta:9999:128 qfs_meta:9999:129
-		go nodeMeta.StartMetaWrite(nh, nodeMeta)
-		//TODO:leader变更，修改槽对应新的leaderID
-		//TODO:存储leaderID: get qfs_meta:9999:129:ShardNodeLeaderID get qfs_meta:9999:128:ShardNodeLeaderID [已测]
-		go dragonboatRaft.Start(nh, nodeMeta)
-	*/
-	/*
-	 */
-	//TODO:重点，多个对象调用，global在对象内通用
+		cl := cluster.NewCluster(node.ShardID, leaderId, node.NodeID, node.IP, node.Port, node.Peers, node.NodeInfo, nodeSlotMetas, masterAddr)
 
-	//TODO:集合真实数据存储cluster
-	// 初始化数据目录（在storage.go中实现）
-	cluster.InitDataDir()
-	//TODO:leaderID从9999shard中获取  nodeMeta  GetShardNodeLeaderID   | qfs_meta:9999:129:ShardNodeLeaderID, result: {"shardID":129,"leaderID":4}
-	//TODO:槽信息从9999shard中获取  nodeMeta GetSolt |  qfs_meta:9999:NodeSlotMetas, result: {"nodeSlotMetas":{"0":{"shardID":128,"slots":{"0":{"StartSlotID":0,"EndSlotID":8191}}},"1":{"shardID":129,"slots":{"0":{"StartSlotID":8192,"EndSlotID":16383}}}}}
-	//node.ShardID, node.NodeID, node.IP, node.Port
-	go cluster.NewCluster(128, 1, 1, "127.0.0.1", 9001, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
-	go cluster.NewCluster(128, 1, 2, "127.0.0.1", 9002, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
-	go cluster.NewCluster(128, 1, 3, "127.0.0.1", 9003, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
-	//go cluster.NewCluster(128, 2, "127.0.0.1", 9002, 1, ":9002", cluster.Master, "127.0.0.1:9001")
-	//go cluster.NewCluster(128, 3, "127.0.0.1", 9003, 1, ":9003", cluster.Master, "127.0.0.1:9001")
+		fmt.Printf("333====data: %v =======%v \n", cl.NodeAllSlotMetas.NodeSlotMetas[0].Slots, cl.NodeAllSlotMetas.NodeSlotMetas[1].Slots)
 
-	//LeaderID赋值和修改
-	//go func() {
-	//	tt := time.NewTicker(10 * time.Second)
-	//	for range tt.C {
-	//		fmt.Printf("11=================leaderId=%v", 1)
-	//		cl.LocalNode.LeaderID = 1
-	//		cl.LeaderID = 1
-	//		cl1.LocalNode.LeaderID = 1
-	//		cl2.LocalNode.LeaderID = 1
-	//	}
-	//}()
-	// 保持主线程运行
-	log.Println("=== 主线程开始运行 ===")
-	for i := 0; i < 100; i++ {
-		log.Printf("主线程运行中，第 %d 秒", i)
-		time.Sleep(1 * time.Second)
-	}
-	log.Println("=== 主线程运行结束 ===")
+		//TODO:根据槽取shardID,再根据shardID 动态取leaderID
+		keySolt := 1232
+		leaderId2 := dragonboatRaft.GetLeaderID(nh, nodeMeta, keySolt)
+		fmt.Printf("4444====data: %v \n", leaderId2)
+		keySolt = 16354
+		leaderId2 = dragonboatRaft.GetLeaderID(nh, nodeMeta, keySolt)
+		fmt.Printf("4444====data: %v \n", leaderId2)
 
-	/*
-	 */
-	/*
-		//TODO:测试数据写入
-
-		raftStopper := syncutil.NewStopper()
-		consoleStopper := syncutil.NewStopper()
-		ch := make(chan string, 16)
-		consoleStopper.RunWorker(func() {
-			reader := bufio.NewReader(os.Stdin)
-			for {
-				s, err := reader.ReadString('\n')
+		//TODO:动态修改cluster中所有的leaderID
+		go func() {
+			tt := time.NewTicker(10 * time.Second)
+			for range tt.C {
+				//TODO:动态修改cluster中所有的leaderID
+				shardNodeLeaderID, err := nodeMeta.GetShardNodeLeaderID(nh, nodeMeta, node.ShardID)
 				if err != nil {
-					close(ch)
-					return
+					fmt.Printf("222====nodeMeta.GetShardNodeLeaderID error:%v \n", err)
 				}
-				if s == "exit\n" {
-					raftStopper.Stop()
-					nh.Close()
-					return
+				fmt.Printf("222====nodeMeta.GetShardNodeLeaderID data:%v \n", shardNodeLeaderID)
+				if cl.ShardID == node.ShardID {
+					cl.LeaderID = shardNodeLeaderID.LeaderID
+					cl.LocalNode.LeaderID = shardNodeLeaderID.LeaderID
 				}
-				ch <- s
+
 			}
-		})
-		printUsage()
-		raftStopper.RunWorker(func() {
-			//cs := nh.GetNoOPSession(exampleShardID)
-			//cs2 := nh.GetNoOPSession(exampleShardID2)
-			cs3 := nh.GetNoOPSession(uint64(dragonboatRaft.GlobalShard))
-			for {
-				select {
-				case v, ok := <-ch:
-					if !ok {
-						return
-					}
-					msg := strings.Replace(v, "\n", "", 1)
-					// input message must be in the following formats -
-					// put key value
-					// get key
-					rt, key, val, ok := parseCommand(msg)
-					if !ok {
-						fmt.Fprintf(os.Stderr, "invalid input\n")
-						printUsage()
-						continue
-					}
-					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-					if rt == PUT {
-						kv := &dragonboatRaft.KVData{
-							Key: key,
-							Val: val,
-						}
-						data, err := json.Marshal(kv)
-						if err != nil {
-							panic(err)
-						}
-						//_, err = nh.SyncPropose(ctx, cs, data)
-						//if err != nil {
-						//	fmt.Fprintf(os.Stderr, "SyncPropose returned error %v\n", err)
-						//}
-						//_, err = nh.SyncPropose(ctx, cs2, data)
-						//if err != nil {
-						//	fmt.Fprintf(os.Stderr, "SyncPropose returned error %v\n", err)
-						//}
-						_, err = nh.SyncPropose(ctx, cs3, data)
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "SyncPropose returned error %v\n", err)
-						}
-					} else {
-						//fmt.Printf("=====%v \n", key)
-						//result, err := nh.SyncRead(ctx, exampleShardID, []byte(key))
-						//if err != nil {
-						//	fmt.Fprintf(os.Stderr, "SyncRead returned error %v\n", err)
-						//} else {
-						//	fmt.Fprintf(os.Stdout, "query key: %s, result: %s\n", key, result)
-						//}
-						//result, err = nh.SyncRead(ctx, exampleShardID2, []byte(key))
-						//if err != nil {
-						//	fmt.Fprintf(os.Stderr, "SyncRead returned error %v\n", err)
-						//} else {
-						//	fmt.Fprintf(os.Stdout, "query key: %s, result: %s\n", key, result)
-						//}
-						result, err := nh.SyncRead(ctx, uint64(dragonboatRaft.GlobalShard), []byte(key))
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "SyncRead returned error %v\n", err)
-						} else {
-							fmt.Fprintf(os.Stdout, "query key: %s, result: %s\n", key, result)
-						}
-					}
-					cancel()
-				case <-raftStopper.ShouldStop():
-					return
-				}
-			}
-		})
-		raftStopper.Wait()
+		}()
+
+	}()
+
+	//根据槽获取leaderID
+	//dragonboatRaft.GetLeaderID(nh, nodeMeta, 123)
+
+	/*
+
+		//TODO:重点，多个对象调用，global在对象内通用
+
+		//TODO:集合真实数据存储cluster
+		// 初始化数据目录（在storage.go中实现）
+		cluster.InitDataDir()
+		//TODO:leaderID从9999shard中获取  nodeMeta  GetShardNodeLeaderID   | qfs_meta:9999:129:ShardNodeLeaderID, result: {"shardID":129,"leaderID":4}
+		//TODO:槽信息从9999shard中获取  nodeMeta GetSolt |  qfs_meta:9999:NodeSlotMetas, result: {"nodeSlotMetas":{"0":{"shardID":128,"slots":{"0":{"StartSlotID":0,"EndSlotID":8191}}},"1":{"shardID":129,"slots":{"0":{"StartSlotID":8192,"EndSlotID":16383}}}}}
+		//node.ShardID, node.NodeID, node.IP, node.Port
+		go cluster.NewCluster(128, 1, 1, "127.0.0.1", 9001, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
+		go cluster.NewCluster(128, 1, 2, "127.0.0.1", 9002, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
+		go cluster.NewCluster(128, 1, 3, "127.0.0.1", 9003, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
+		//go cluster.NewCluster(128, 2, "127.0.0.1", 9002, 1, ":9002", cluster.Master, "127.0.0.1:9001")
+		//go cluster.NewCluster(128, 3, "127.0.0.1", 9003, 1, ":9003", cluster.Master, "127.0.0.1:9001")
+
+		//LeaderID赋值和修改
+		//go func() {
+		//	tt := time.NewTicker(10 * time.Second)
+		//	for range tt.C {
+		//		fmt.Printf("11=================leaderId=%v", 1)
+		//		cl.LocalNode.LeaderID = 1
+		//		cl.LeaderID = 1
+		//		cl1.LocalNode.LeaderID = 1
+		//		cl2.LocalNode.LeaderID = 1
+		//	}
+		//}()
+		// 保持主线程运行
+		log.Println("=== 主线程开始运行 ===")
+		for i := 0; i < 100; i++ {
+			log.Printf("主线程运行中，第 %d 秒", i)
+			time.Sleep(1 * time.Second)
+		}
+		log.Println("=== 主线程运行结束 ===")
+
+		/*
 	*/
+
+	//TODO:测试数据写入
+
+	raftStopper := syncutil.NewStopper()
+	consoleStopper := syncutil.NewStopper()
+	ch := make(chan string, 16)
+	consoleStopper.RunWorker(func() {
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			s, err := reader.ReadString('\n')
+			if err != nil {
+				close(ch)
+				return
+			}
+			if s == "exit\n" {
+				raftStopper.Stop()
+				nh.Close()
+				return
+			}
+			ch <- s
+		}
+	})
+	printUsage()
+	raftStopper.RunWorker(func() {
+		//cs := nh.GetNoOPSession(exampleShardID)
+		//cs2 := nh.GetNoOPSession(exampleShardID2)
+		cs3 := nh.GetNoOPSession(uint64(dragonboatRaft.GlobalShard))
+		for {
+			select {
+			case v, ok := <-ch:
+				if !ok {
+					return
+				}
+				msg := strings.Replace(v, "\n", "", 1)
+				// input message must be in the following formats -
+				// put key value
+				// get key
+				rt, key, val, ok := parseCommand(msg)
+				if !ok {
+					fmt.Fprintf(os.Stderr, "invalid input\n")
+					printUsage()
+					continue
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				if rt == PUT {
+					kv := &dragonboatRaft.KVData{
+						Key: key,
+						Val: val,
+					}
+					data, err := json.Marshal(kv)
+					if err != nil {
+						panic(err)
+					}
+					//_, err = nh.SyncPropose(ctx, cs, data)
+					//if err != nil {
+					//	fmt.Fprintf(os.Stderr, "SyncPropose returned error %v\n", err)
+					//}
+					//_, err = nh.SyncPropose(ctx, cs2, data)
+					//if err != nil {
+					//	fmt.Fprintf(os.Stderr, "SyncPropose returned error %v\n", err)
+					//}
+					_, err = nh.SyncPropose(ctx, cs3, data)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "SyncPropose returned error %v\n", err)
+					}
+				} else {
+					//fmt.Printf("=====%v \n", key)
+					//result, err := nh.SyncRead(ctx, exampleShardID, []byte(key))
+					//if err != nil {
+					//	fmt.Fprintf(os.Stderr, "SyncRead returned error %v\n", err)
+					//} else {
+					//	fmt.Fprintf(os.Stdout, "query key: %s, result: %s\n", key, result)
+					//}
+					//result, err = nh.SyncRead(ctx, exampleShardID2, []byte(key))
+					//if err != nil {
+					//	fmt.Fprintf(os.Stderr, "SyncRead returned error %v\n", err)
+					//} else {
+					//	fmt.Fprintf(os.Stdout, "query key: %s, result: %s\n", key, result)
+					//}
+					result, err := nh.SyncRead(ctx, uint64(dragonboatRaft.GlobalShard), []byte(key))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "SyncRead returned error %v\n", err)
+					} else {
+						fmt.Fprintf(os.Stdout, "query key: %s, result: %s\n", key, result)
+					}
+				}
+				cancel()
+			case <-raftStopper.ShouldStop():
+				return
+			}
+		}
+	})
+	raftStopper.Wait()
+
 }

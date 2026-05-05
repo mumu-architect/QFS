@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"mumu.com/redis-go/cluster/dragonboatRaft"
 )
 
 // 常量定义
@@ -43,11 +45,13 @@ type Node struct {
 
 // Cluster 集群核心结构体
 type Cluster struct {
-	mu            sync.RWMutex
-	ShardID       int
-	LeaderID      int
-	LocalNode     *Node // 本地节点
-	ShardNodeInfo map[int]*Node
+	mu               sync.RWMutex
+	ShardID          int
+	LeaderID         int
+	NodeAllSlotMetas *dragonboatRaft.NodeSlotMetas
+	LocalNode        *Node // 本地节点
+	ShardNodeInfo    map[int]*Node
+	AllNodeInfos     string
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
 	//Nodes          map[int]*Node       // 集群所有节点（ID->Node）
 	slotMap        map[int]string      // 哈希槽->主节点ID映射
@@ -75,7 +79,7 @@ var (
 )
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, masterAddr string) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, masterAddr string) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
@@ -92,12 +96,14 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		Slots:    []int{},
 	}
 	cl := &Cluster{
-		ShardID:   shardID,
-		LeaderID:  leaderID,
-		LocalNode: localNode,
+		ShardID:          shardID,
+		LeaderID:         leaderID,
+		NodeAllSlotMetas: nodeSlotMetas,
+		LocalNode:        localNode,
 		//Nodes:     make(map[string]*Node),
 		//Nodes:         shardNodeInfo,
 		ShardNodeInfo: shardNodeInfo,
+		AllNodeInfos:  nodeInfo,
 		slotMap:       make(map[int]string),
 		// 初始化RedisData（替换原dataStore := make(map[string]string)）
 		dataStore:      nil,
