@@ -55,7 +55,7 @@ type NodeSlotMetas struct {
 	NodeSlotMetas map[int]*NodeSlotMeta `json:"nodeSlotMetas"`
 }
 
-// 初始化16384槽
+// InitFullSlots 初始化16384槽
 func InitFullSlots(nh *dragonboat.NodeHost, nodeMeta *NodeMeta) {
 	parts := strings.Split(nodeMeta.ShardIDS, ",")
 	LeaderCount := len(parts)
@@ -71,15 +71,12 @@ func assignSlots(nh *dragonboat.NodeHost, nodeMeta *NodeMeta, shardIDArr []strin
 		fmt.Println("===============无主节点")
 		return
 	}
-
 	// 计算每个节点基础槽数 + 余数
 	slotsPerNode := TotalSlots / masterCount
 	remainder := TotalSlots % masterCount
-
 	start := 0
-
 	// 分配槽
-	nodeslotMetas := make(map[int]*NodeSlotMeta)
+	nodeSlotMetas := make(map[int]*NodeSlotMeta)
 	for i, shardID := range shardIDArr {
 		end := start + slotsPerNode - 1
 
@@ -123,16 +120,16 @@ func assignSlots(nh *dragonboat.NodeHost, nodeMeta *NodeMeta, shardIDArr []strin
 			ShardID: shardID,
 			Slots:   slots,
 		}
-		nodeslotMetas[i] = nsm
+		nodeSlotMetas[i] = nsm
 
 		//fmt.Printf("333===================assign slot %d failed", i)
 		start = end + 1
 	}
 	//TODO:写入元数据,落盘
-	nodeSlotMetas := &NodeSlotMetas{
-		NodeSlotMetas: nodeslotMetas,
+	nodeSlotMetas2 := &NodeSlotMetas{
+		NodeSlotMetas: nodeSlotMetas,
 	}
-	_, err := SetSolt(nh, nodeMeta, nodeSlotMetas)
+	_, err := SetSolt(nh, nodeMeta, nodeSlotMetas2)
 	if err != nil {
 		return
 	}

@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,10 +31,10 @@ const (
 
 // Node 集群节点信息
 type Node struct {
-	ShardID  int        `json:"shardID"` // 节点唯一ID
-	NodeID   int        `json:"id"`      // 节点唯一ID
-	IP       string     `json:"ip"`      // 地址（IP）
-	Port     int        `json:"port"`    // 地址（Port）
+	ShardID  int        `json:"shardID"`
+	NodeID   int        `json:"id"`   // 节点唯一ID
+	IP       string     `json:"ip"`   // 地址（IP）
+	Port     int        `json:"port"` // 地址（Port）
 	LeaderID int        `json:"leaderID"`
 	Addr     string     `json:"addr"`   // 地址（IP:Port）//TODO:使用的地方比较多
 	Status   NodeStatus `json:"status"` // 在线/离线
@@ -41,10 +43,13 @@ type Node struct {
 
 // Cluster 集群核心结构体
 type Cluster struct {
-	mu        sync.RWMutex
-	LocalNode *Node // 本地节点
+	mu            sync.RWMutex
+	ShardID       int
+	LeaderID      int
+	LocalNode     *Node // 本地节点
+	ShardNodeInfo map[int]*Node
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
-	Nodes          map[int]*Node       // 集群所有节点（ID->Node）
+	//Nodes          map[int]*Node       // 集群所有节点（ID->Node）
 	slotMap        map[int]string      // 哈希槽->主节点ID映射
 	dataStore      interface{}         // 本地存储（主节点读写，从节点同步）
 	replicas       map[int][]*Node     // 主节点ID->从节点列表映射
@@ -70,10 +75,11 @@ var (
 )
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, nodeID int, ip string, port int, addr1 string, masterAddr string) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, masterAddr string) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
+	shardNodeInfo := stringToMapNodes(shardID, peers)
 	// 1. 创建当前集群的本地节点
 	localNode := &Node{
 		ShardID:  shardID,
@@ -81,15 +87,18 @@ func NewCluster(shardID int, nodeID int, ip string, port int, addr1 string, mast
 		IP:       ip,
 		Port:     port,
 		Addr:     addr,
-		LeaderID: 1,
+		LeaderID: leaderID,
 		Status:   Online,
 		Slots:    []int{},
 	}
-	cluster := &Cluster{
+	cl := &Cluster{
+		ShardID:   shardID,
+		LeaderID:  leaderID,
 		LocalNode: localNode,
 		//Nodes:     make(map[string]*Node),
-		Nodes:   make(map[int]*Node),
-		slotMap: make(map[int]string),
+		//Nodes:         shardNodeInfo,
+		ShardNodeInfo: shardNodeInfo,
+		slotMap:       make(map[int]string),
 		// 初始化RedisData（替换原dataStore := make(map[string]string)）
 		dataStore:      nil,
 		replicas:       make(map[int][]*Node),
@@ -108,55 +117,33 @@ func NewCluster(shardID int, nodeID int, ip string, port int, addr1 string, mast
 	}
 
 	// 初始化数据结构
-	cluster.initRedisData()
-	globalNodes[nodeID] = localNode
+	cl.initRedisData()
+
 	// 主节点初始化（加载数据+槽分配+落盘任务）
 	//if nodeType == Master {
-	if nodeID == 1 {
-		if err := cluster.loadPersistedData(); err != nil {
+	if nodeID == leaderID {
+		if err := cl.loadPersistedData(); err != nil {
 			log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
 		} else {
 			log.Printf("主节点 %s 加载持久化数据成功", addr)
 		}
-		cluster.initSlots()
-		cluster.Nodes[nodeID] = localNode
-		go cluster.persistDataLoop()
+		cl.initSlots()
+		//go cluster.persistDataLoop()
 	} else {
 		// 从节点初始化
 		log.Printf("=== 从节点 %s 开始初始化，主节点地址：%s ===", addr, masterAddr)
-		//cluster.LocalNode.MasterID = masterAddr // 暂时使用地址作为 MasterID
-		//cluster.LocalNode.LeaderID = masterID // 暂时使用地址作为 MasterID
-		// 从节点也需要将自己添加到节点列表中
-		cluster.Nodes[nodeID] = localNode
-		log.Printf("从节点 %s 添加自己到节点列表中，节点 ID：%s", addr, nodeID)
-		// 根据地址创建主节点的信息，确保节点列表中始终有主节点的信息
-		//masterNodeID := "master-" + masterAddr
-
-		masterNode := &Node{
-			ShardID:  shardID,
-			NodeID:   nodeID,
-			IP:       ip,
-			Port:     port,
-			Addr:     addr,
-			LeaderID: 1,
-			//Type:     nodeType,
-			Status: Online,
-			Slots:  []int{},
-		}
-		cluster.Nodes[nodeID] = masterNode
-
 		// 将同步操作放到 goroutine 中，避免阻塞初始化过程
-		go cluster.syncFromMaster(masterAddr)
-
+		go cl.syncFromMaster(masterAddr)
 	}
-	cluster.Nodes = globalNodes
-	//TODO: 启动选举循环
+	//TODO:数据持久化，主从都可以
+	go cl.persistDataLoop()
+	fmt.Printf("11=======%v\n", cl.ShardNodeInfo)
 
-	cluster.registerAllHandlers()
-	go cluster.startHTTPAPI()
-
-	log.Printf("节点 %s 启动成功（类型：%s）", addr)
-	return cluster
+	//TODO: 注册所有助手方法
+	cl.registerAllHandlers()
+	//TODO: 启动http服务器
+	go cl.startHTTPAPI()
+	return cl
 }
 
 // persistDataLoop 数据持久化后台循环
@@ -180,4 +167,35 @@ func (c *Cluster) persistDataLoop() {
 			return
 		}
 	}
+}
+
+// 字符串转map的node节点
+func stringToMapNodes(shardID int, peers string) map[int]*Node {
+	var shardNodeInfo = make(map[int]*Node)
+	peerList := strings.Split(peers, ",")
+	for _, peer := range peerList {
+		parts := strings.Split(peer, "=")
+		if len(parts) != 2 {
+			continue
+		}
+		peerNodeID, _ := strconv.Atoi(parts[0])
+		nodeAddr := parts[1]
+		parts2 := strings.Split(nodeAddr, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		peerNodeIP := parts2[0]
+		peerNodePort, _ := strconv.Atoi(parts2[1])
+		addr := fmt.Sprintf(":%d", peerNodePort)
+		peerNodeInfo := &Node{
+			ShardID: shardID,
+			NodeID:  peerNodeID,
+			IP:      peerNodeIP,
+			Port:    peerNodePort,
+			Addr:    addr,
+		}
+		//fmt.Printf("111====%d======%v \n", peerNodeID, peerNodeInfo)
+		shardNodeInfo[peerNodeID] = peerNodeInfo
+	}
+	return shardNodeInfo
 }

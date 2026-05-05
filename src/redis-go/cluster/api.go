@@ -183,7 +183,7 @@ func (c *Cluster) HSet(key, field, val string) error {
 	}
 
 	// 路由到其他主节点
-	targetNode, exists := c.Nodes[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID2]
 	if !exists || targetNode.Status != Online {
 		log.Printf("HSet：目标主节点不可用：masterID=%s", masterID)
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
@@ -213,7 +213,7 @@ func (c *Cluster) HGet(key, field string) (string, error) {
 	}
 	fmt.Printf("2222=========%v \n", masterID)
 	// 路由到主节点查询
-	targetNode, exists := c.Nodes[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID2]
 	if !exists || targetNode.Status != Online {
 		return "", fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -329,7 +329,7 @@ func (c *Cluster) Set(key, val string) error {
 
 	// 目标主节点是其他节点，路由转发
 	log.Printf("目标主节点不是自身，从Nodes中查找目标主节点：masterID=%s", masterID)
-	targetNode, exists := c.Nodes[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID2]
 	if !exists {
 		log.Printf("目标主节点不存在：masterID=%s", masterID)
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
@@ -361,7 +361,7 @@ func (c *Cluster) Get(key string) (string, error) {
 	}
 	masterID2, _ := strconv.Atoi(masterID)
 	// 本地无数据，路由到主节点读取
-	targetNode, exists := c.Nodes[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID2]
 	if !exists || targetNode.Status != Online {
 		return "", fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -408,7 +408,7 @@ func (c *Cluster) HMSet(key string, fieldVals map[string]string) error {
 	}
 	//masterID2, _ = strconv.Atoi(masterID)
 	// 路由到其他主节点（构造批量参数）
-	targetNode, exists := c.Nodes[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID2]
 	if !exists || targetNode.Status != Online {
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -442,7 +442,7 @@ func (c *Cluster) HMGet(key string, fields []string) (map[string]string, error) 
 
 	// 路由到主节点查询（补充未命中字段）
 	masterID2, _ := strconv.Atoi(masterID)
-	targetNode, exists := c.Nodes[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID2]
 	if !exists || targetNode.Status != Online {
 		return nil, fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}

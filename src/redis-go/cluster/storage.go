@@ -37,8 +37,11 @@ func InitDataDir() {
 }
 
 func getDataFilePath(nodeId int, addr string) string {
+	if err := os.MkdirAll(DataDir+"/data_"+strconv.Itoa(nodeId), 0755); err != nil {
+		log.Fatalf("创建nodeID数据目录失败：%v", err)
+	}
 	filename := strconv.Itoa(nodeId) + strings.Replace(addr, ":", "_", -1) + ".data"
-	return filepath.Join(DataDir, filename)
+	return filepath.Join(DataDir+"/data_"+strconv.Itoa(nodeId), filename)
 }
 
 // 数据落盘：序列化RedisData整体落盘
