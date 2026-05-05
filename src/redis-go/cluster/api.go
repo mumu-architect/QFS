@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -23,13 +22,14 @@ func (c *Cluster) registerDataHandlers() {
 	c.serveMux.HandleFunc("/Set", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		val := r.URL.Query().Get("val")
-		fmt.Println("22222222222222222222")
+
 		if key == "" {
 			http.Error(w, "key不能为空", http.StatusBadRequest)
 			return
 		}
 
-		err := c.Set(key, val)
+		//err := c.Set(key, val)
+		err := c.Set(w, r, key, val)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Set失败：%v", err), http.StatusInternalServerError)
 			return
@@ -46,7 +46,7 @@ func (c *Cluster) registerDataHandlers() {
 			return
 		}
 
-		val, err := c.Get(key)
+		val, err := c.Get(w, r, key)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Get失败：%v", err), http.StatusInternalServerError)
 			return
@@ -167,11 +167,12 @@ func (c *Cluster) HSet(key, field, val string) error {
 	// 哈希槽路由（按key计算槽位，与String共用路由逻辑）
 	slot := c.calcSlot(key)
 	log.Printf("HSet：计算槽位：key=%s, slot=%d", key, slot)
-	masterID := c.slotMap[slot]
+	//masterID := c.slotMap[slot]
+	masterID := c.GetSlotToLeaderID(slot)
 	log.Printf("HSet：槽位映射：slot=%d, masterID=%s", slot, masterID)
 	log.Printf("HSet：本地节点ID：%s", c.LocalNode.NodeID)
-	masterID2, _ := strconv.Atoi(masterID)
-	if masterID2 == c.LocalNode.NodeID {
+	//masterID2, _ := strconv.Atoi(masterID)
+	if masterID == c.LocalNode.NodeID {
 		// 本地存储
 		log.Printf("HSet：本地存储：key=%s, field=%s, val=%s", key, field, val)
 		c.setHashData(key, field, val)
@@ -183,7 +184,7 @@ func (c *Cluster) HSet(key, field, val string) error {
 	}
 
 	// 路由到其他主节点
-	targetNode, exists := c.ShardNodeInfo[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID]
 	if !exists || targetNode.Status != Online {
 		log.Printf("HSet：目标主节点不可用：masterID=%s", masterID)
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
@@ -202,10 +203,11 @@ func (c *Cluster) HGet(key, field string) (string, error) {
 
 	// 哈希槽路由（按key计算槽位）
 	slot := c.calcSlot(key)
-	masterID := c.slotMap[slot]
+	//masterID := c.slotMap[slot]
+	masterID := c.GetSlotToLeaderID(slot)
 	//masterID2, _ := strconv.Atoi(masterID)
 	fmt.Printf("111=========%v \n", masterID)
-	masterID2, _ := strconv.Atoi(masterID)
+	//masterID2, _ := strconv.Atoi(masterID)
 	// 本地查询
 	if val, exists := c.getHashData(key, field); exists {
 		log.Printf("本地HGet：key=%s, field=%s, val=%s（槽位：%d）", key, field, val, slot)
@@ -213,7 +215,7 @@ func (c *Cluster) HGet(key, field string) (string, error) {
 	}
 	fmt.Printf("2222=========%v \n", masterID)
 	// 路由到主节点查询
-	targetNode, exists := c.ShardNodeInfo[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID]
 	if !exists || targetNode.Status != Online {
 		return "", fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -302,8 +304,8 @@ func (c *Cluster) startHTTPAPI() {
 }
 
 // Set 写入数据（核心方法，路由到对应主节点）
-func (c *Cluster) Set(key, val string) error {
-	fmt.Println(111111111111111111)
+func (c *Cluster) Set(w http.ResponseWriter, r *http.Request, key, val string) error {
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -314,11 +316,16 @@ func (c *Cluster) Set(key, val string) error {
 
 	// 计算槽位，路由到目标主节点
 	slot := c.calcSlot(key)
-	masterID := c.slotMap[slot]
+	//masterID := c.slotMap[slot]
+	//TODO:根据槽获取leaderID
+	fmt.Println(111111111111111111)
+	fmt.Printf("1111====== %v", slot)
+	masterID := c.GetSlotToLeaderID(slot)
+	fmt.Printf("1111====== %v", masterID)
 	log.Printf("Set操作：key=%s, val=%s, 计算槽位=%d, 目标主节点ID=%s, 本地节点ID=%s", key, val, slot, masterID, c.LocalNode.NodeID)
-	masterID2, _ := strconv.Atoi(masterID)
+	//masterID2, _ := strconv.Atoi(masterID)
 	// 目标主节点是自身，直接写入
-	if masterID2 == c.LocalNode.NodeID {
+	if masterID == c.LocalNode.NodeID {
 		c.setStringData(key, val)
 		c.recentChanges[key] = time.Now()
 		log.Printf("本地写入数据：key=%s, val=%s（槽位：%d）", key, val, slot)
@@ -329,14 +336,20 @@ func (c *Cluster) Set(key, val string) error {
 
 	// 目标主节点是其他节点，路由转发
 	log.Printf("目标主节点不是自身，从Nodes中查找目标主节点：masterID=%s", masterID)
-	targetNode, exists := c.ShardNodeInfo[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID]
 	if !exists {
-		log.Printf("目标主节点不存在：masterID=%s", masterID)
-		return fmt.Errorf("目标主节点 %s 不可用", masterID)
+		log.Printf("目标主节点不存在：masterID=%d", masterID)
+		//return fmt.Errorf("目标主节点1 %d 不可用", masterID)
+		//TODO:跳转307,到目标主节点
+		targetAddr := c.GetNodeIdToNodeArr(masterID)
+		targetUrl := fmt.Sprintf("http://%s/%s?key=%s&val=%s", targetAddr, "Set", key, val)
+		fmt.Printf("111====%v \n", targetUrl)
+		http.Redirect(w, r, targetUrl, http.StatusTemporaryRedirect)
+		return nil
 	}
 	if targetNode.Status != Online {
 		log.Printf("目标主节点状态不是在线：masterID=%s, 状态=%s", masterID, targetNode.Status)
-		return fmt.Errorf("目标主节点 %s 不可用", masterID)
+		return fmt.Errorf("目标主节点2 %d 不可用", masterID)
 	}
 
 	log.Printf("路由写入数据到节点 %s：key=%s（槽位：%d）", targetNode.Addr, key, slot)
@@ -346,26 +359,35 @@ func (c *Cluster) Set(key, val string) error {
 }
 
 // Get 读取数据（核心方法，路由到对应节点）
-func (c *Cluster) Get(key string) (string, error) {
+func (c *Cluster) Get(w http.ResponseWriter, r *http.Request, key string) (string, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	// 计算槽位，找到主节点
 	slot := c.calcSlot(key)
-	masterID := c.slotMap[slot]
+	//masterID := c.slotMap[slot]
+	masterID := c.GetSlotToLeaderID(slot)
 
 	// 检查本地是否有该数据（主节点/从节点缓存）
 	if val, exists := c.getStringData(key); exists {
 		log.Printf("本地读取数据：key=%s, val=%s（槽位：%d）", key, val, slot)
 		return val, nil
 	}
-	masterID2, _ := strconv.Atoi(masterID)
+	//masterID2, _ := strconv.Atoi(masterID)
 	// 本地无数据，路由到主节点读取
-	targetNode, exists := c.ShardNodeInfo[masterID2]
-	if !exists || targetNode.Status != Online {
-		return "", fmt.Errorf("目标主节点 %s 不可用", masterID)
+	targetNode, exists := c.ShardNodeInfo[masterID]
+	if !exists {
+		//return "", fmt.Errorf("目标主节点 %d 不可用", masterID)
+		//TODO:跳转307,到目标主节点
+		targetAddr := c.GetNodeIdToNodeArr(masterID)
+		targetUrl := fmt.Sprintf("http://%s/%s?key=%s&val=%s", targetAddr, "Get", key, "")
+		fmt.Printf("111====%v \n", targetUrl)
+		http.Redirect(w, r, targetUrl, http.StatusTemporaryRedirect)
+		return "", nil
 	}
-
+	if targetNode.Status != Online {
+		return "", fmt.Errorf("目标主节点 %d 不可用", masterID)
+	}
 	log.Printf("路由读取数据到节点 %s：key=%s（槽位：%d）", targetNode.Addr, key, slot)
 	val, err := c.routeToNode(targetNode.Addr, "Get", key, "")
 	if err != nil {
@@ -391,9 +413,10 @@ func (c *Cluster) HMSet(key string, fieldVals map[string]string) error {
 
 	// 批量操作路由：按key计算主节点（确保同一key的批量操作路由到同一节点）
 	slot := c.calcSlot(key)
-	masterID := c.slotMap[slot]
-	masterID2, _ := strconv.Atoi(masterID)
-	if masterID2 == c.LocalNode.NodeID {
+	//masterID := c.slotMap[slot]
+	masterID := c.GetSlotToLeaderID(slot)
+	//masterID2, _ := strconv.Atoi(masterID)
+	if masterID == c.LocalNode.NodeID {
 		// 本地批量存储
 		// 逐字段写入本地 Hash
 		for field, val := range fieldVals {
@@ -408,7 +431,7 @@ func (c *Cluster) HMSet(key string, fieldVals map[string]string) error {
 	}
 	//masterID2, _ = strconv.Atoi(masterID)
 	// 路由到其他主节点（构造批量参数）
-	targetNode, exists := c.ShardNodeInfo[masterID2]
+	targetNode, exists := c.ShardNodeInfo[masterID]
 	if !exists || targetNode.Status != Online {
 		return fmt.Errorf("目标主节点 %s 不可用", masterID)
 	}
@@ -425,7 +448,8 @@ func (c *Cluster) HMGet(key string, fields []string) (map[string]string, error) 
 
 	// 批量查询路由：按key计算主节点
 	slot := c.calcSlot(key)
-	masterID := c.slotMap[slot]
+	//masterID := c.slotMap[slot]
+	masterID := c.GetSlotToLeaderID(slot)
 
 	// 本地批量查询
 	localValMap := make(map[string]string)
@@ -441,10 +465,10 @@ func (c *Cluster) HMGet(key string, fields []string) (map[string]string, error) 
 	}
 
 	// 路由到主节点查询（补充未命中字段）
-	masterID2, _ := strconv.Atoi(masterID)
-	targetNode, exists := c.ShardNodeInfo[masterID2]
+	//masterID2, _ := strconv.Atoi(masterID)
+	targetNode, exists := c.ShardNodeInfo[masterID]
 	if !exists || targetNode.Status != Online {
-		return nil, fmt.Errorf("目标主节点 %s 不可用", masterID)
+		return nil, fmt.Errorf("目标主节点 %d 不可用", masterID)
 	}
 
 	log.Printf("路由HMGet到节点 %s：key=%s", targetNode.Addr, key)

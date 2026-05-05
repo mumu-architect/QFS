@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lni/dragonboat/v4"
 	"mumu.com/redis-go/cluster/dragonboatRaft"
 )
 
@@ -45,13 +46,15 @@ type Node struct {
 
 // Cluster 集群核心结构体
 type Cluster struct {
-	mu               sync.RWMutex
-	ShardID          int
-	LeaderID         int
-	NodeAllSlotMetas *dragonboatRaft.NodeSlotMetas
-	LocalNode        *Node // 本地节点
-	ShardNodeInfo    map[int]*Node
-	AllNodeInfos     string
+	mu                 sync.RWMutex
+	ShardID            int
+	LeaderID           int
+	NodeAllSlotMetas   *dragonboatRaft.NodeSlotMetas
+	LocalNode          *Node // 本地节点
+	DragonBoatNodeHost *dragonboat.NodeHost
+	NodeMeta           *dragonboatRaft.NodeMeta
+	ShardNodeInfo      map[int]*Node
+	AllNodeInfos       string
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
 	//Nodes          map[int]*Node       // 集群所有节点（ID->Node）
 	slotMap        map[int]string      // 哈希槽->主节点ID映射
@@ -79,7 +82,7 @@ var (
 )
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, masterAddr string) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, masterAddr string) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
@@ -96,10 +99,12 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		Slots:    []int{},
 	}
 	cl := &Cluster{
-		ShardID:          shardID,
-		LeaderID:         leaderID,
-		NodeAllSlotMetas: nodeSlotMetas,
-		LocalNode:        localNode,
+		ShardID:            shardID,
+		LeaderID:           leaderID,
+		NodeAllSlotMetas:   nodeSlotMetas,
+		LocalNode:          localNode,
+		DragonBoatNodeHost: nh,
+		NodeMeta:           nodeMeta,
 		//Nodes:     make(map[string]*Node),
 		//Nodes:         shardNodeInfo,
 		ShardNodeInfo: shardNodeInfo,
@@ -204,4 +209,32 @@ func stringToMapNodes(shardID int, peers string) map[int]*Node {
 		shardNodeInfo[peerNodeID] = peerNodeInfo
 	}
 	return shardNodeInfo
+}
+
+// GetSlotToLeaderID 根据槽获取leaderID
+func (c *Cluster) GetSlotToLeaderID(keySolt int) int {
+	leaderId := dragonboatRaft.GetLeaderID(c.DragonBoatNodeHost, c.NodeMeta, keySolt)
+	if leaderId > 0 {
+		return leaderId
+	} else {
+		fmt.Printf("leaderID 不存在返回-1")
+		return -1
+	}
+}
+
+// 通过节点nodeID获取节点地址
+func (c *Cluster) GetNodeIdToNodeArr(nodeId int) string {
+	peerList := strings.Split(c.AllNodeInfos, ",")
+	for _, peer := range peerList {
+		parts := strings.Split(peer, "=")
+		if len(parts) != 2 {
+			continue
+		}
+		peerNodeID, _ := strconv.Atoi(parts[0])
+		nodeAddr := parts[1]
+		if nodeId == peerNodeID {
+			return nodeAddr
+		}
+	}
+	return ""
 }

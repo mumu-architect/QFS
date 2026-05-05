@@ -132,10 +132,11 @@ func main() {
 			masterAddr = "127.0.0.1:9004"
 		}
 
-		cl := cluster.NewCluster(node.ShardID, leaderId, node.NodeID, node.IP, node.Port, node.Peers, node.NodeInfo, nodeSlotMetas, masterAddr)
+		cl := cluster.NewCluster(node.ShardID, leaderId, node.NodeID, node.IP, node.Port, node.Peers, node.NodeInfo, nodeSlotMetas, nh, nodeMeta, masterAddr)
 
 		fmt.Printf("333====data: %v =======%v \n", cl.NodeAllSlotMetas.NodeSlotMetas[0].Slots, cl.NodeAllSlotMetas.NodeSlotMetas[1].Slots)
 
+		//11524  5
 		//TODO:根据槽取shardID,再根据shardID 动态取leaderID
 		keySolt := 1232
 		leaderId2 := dragonboatRaft.GetLeaderID(nh, nodeMeta, keySolt)
