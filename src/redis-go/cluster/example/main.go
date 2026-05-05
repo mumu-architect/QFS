@@ -61,6 +61,7 @@ func main() {
 	// go run main.go --shardID 129 --id 6 --ip 127.0.0.1 --port 19006 --shardIDS "128,129" --peers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --nodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006"
 	//
 	/*
+
 		var node Node
 		flag.IntVar(&node.ShardID, "shardID", 0, "端口 1/2/3")
 		flag.IntVar(&node.NodeID, "id", 0, "1/2/3")
@@ -78,7 +79,7 @@ func main() {
 		nh := dragonboatRaft.NewDragonBoatRaftNode(node.ShardID, node.NodeID, node.Peers, node.NodeInfo)
 		nodeMeta := dragonboatRaft.InitMeta(node.ShardID, node.NodeID, node.IP, node.Port, node.ShardIDS, node.Peers, node.NodeInfo)
 		//TODO: 初始化槽信息，首次平均分配槽
-		//TODO: qfs_meta:9999:NodeSlotMetas
+		//TODO: get qfs_meta:9999:NodeSlotMetas
 		go dragonboatRaft.StartSlotWrite(nh, nodeMeta)
 		//TODO:存储每个shardID: qfs_meta:9999:128 qfs_meta:9999:129
 		go nodeMeta.StartMetaWrite(nh, nodeMeta)
@@ -93,8 +94,8 @@ func main() {
 	//TODO:集合真实数据存储cluster
 	// 初始化数据目录（在storage.go中实现）
 	cluster.InitDataDir()
-	//TODO:leaderID从9999shard中获取  nodeMeta  GetShardNodeLeaderID
-	//TODO:槽信息从9999shard中获取  nodeMeta GetSolt
+	//TODO:leaderID从9999shard中获取  nodeMeta  GetShardNodeLeaderID   | qfs_meta:9999:129:ShardNodeLeaderID, result: {"shardID":129,"leaderID":4}
+	//TODO:槽信息从9999shard中获取  nodeMeta GetSolt |  qfs_meta:9999:NodeSlotMetas, result: {"nodeSlotMetas":{"0":{"shardID":128,"slots":{"0":{"StartSlotID":0,"EndSlotID":8191}}},"1":{"shardID":129,"slots":{"0":{"StartSlotID":8192,"EndSlotID":16383}}}}}
 	//node.ShardID, node.NodeID, node.IP, node.Port
 	go cluster.NewCluster(128, 1, 1, "127.0.0.1", 9001, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
 	go cluster.NewCluster(128, 1, 2, "127.0.0.1", 9002, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
@@ -123,7 +124,6 @@ func main() {
 
 	/*
 	 */
-
 	/*
 		//TODO:测试数据写入
 
