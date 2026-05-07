@@ -147,7 +147,7 @@ func main() {
 
 		//TODO:动态修改cluster中所有的leaderID
 		go func() {
-			tt := time.NewTicker(10 * time.Second)
+			tt := time.NewTicker(3 * time.Second)
 			for range tt.C {
 				//TODO:动态修改cluster中所有的leaderID
 				shardNodeLeaderID, err := nodeMeta.GetShardNodeLeaderID(nh, nodeMeta, node.ShardID)

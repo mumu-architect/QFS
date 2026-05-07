@@ -72,9 +72,9 @@ type Cluster struct {
 	recentChanges  map[string]time.Time // 最近数据变更（用于增量同步）
 	dataFile       string               // 数据落盘文件路径
 	lastSyncOffset int64                // 从节点同步偏移量（断点续传）
-	serveMux       *http.ServeMux       // 每个节点自己的HTTP路由
+	ServeMux       *http.ServeMux       // 每个节点自己的HTTP路由
 	lastActive     map[int]time.Time    // 节点最后活跃时间（用于故障检测）
-	httpServer     *http.Server         // HTTP服务器实例
+	HttpServer     *http.Server         // HTTP服务器实例
 }
 
 // NewCluster 创建集群节点
@@ -119,7 +119,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		recentChanges:  make(map[string]time.Time),
 		dataFile:       dataFile,
 		lastSyncOffset: 0,
-		serveMux:       http.NewServeMux(),
+		ServeMux:       http.NewServeMux(),
 		lastActive:     make(map[int]time.Time),
 	}
 

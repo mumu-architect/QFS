@@ -6,6 +6,7 @@ require (
 	github.com/cockroachdb/pebble v0.0.0-20221207173255-0f086d933dac
 	github.com/lni/dragonboat/v4 v4.0.0-20250723143628-076c7f6497dc
 	github.com/lni/goutils v1.4.0
+	github.com/tidwall/wal v1.2.1
 	gopkg.in/yaml.v3 v3.0.1
 	mumu.com/config v0.0.0-00010101000000-000000000000
 )
@@ -40,6 +41,10 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
+	github.com/tidwall/gjson v1.10.2 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/tidwall/tinylru v1.1.0 // indirect
 	github.com/valyala/fastrand v1.1.0 // indirect
 	github.com/valyala/histogram v1.2.0 // indirect
 	golang.org/x/crypto v0.40.0 // indirect

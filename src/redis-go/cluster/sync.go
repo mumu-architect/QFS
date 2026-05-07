@@ -14,7 +14,7 @@ import (
 // registerSyncHandlers 注册同步相关HTTP接口
 func (c *Cluster) registerSyncHandlers() {
 	// 1. 从节点请求主节点同步（带偏移量，支持断点续传）
-	c.serveMux.HandleFunc("/syncWithOffset", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/syncWithOffset", func(w http.ResponseWriter, r *http.Request) {
 		// 解析请求参数
 		offsetStr := r.URL.Query().Get("offset")
 		batchSizeStr := r.URL.Query().Get("batchSize")
@@ -36,7 +36,7 @@ func (c *Cluster) registerSyncHandlers() {
 	})
 
 	// 2. 从节点接收主节点推送的增量数据（支持 String/Hash）
-	c.serveMux.HandleFunc("/syncData", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/syncData", func(w http.ResponseWriter, r *http.Request) {
 		// 解析通用参数
 		dataType := r.URL.Query().Get("type") // string 或 hash
 		key := r.URL.Query().Get("key")
@@ -77,7 +77,7 @@ func (c *Cluster) registerSyncHandlers() {
 	})
 
 	// 3. 迁移槽位数据（原主节点向新主节点推送）
-	c.serveMux.HandleFunc("/migrateSlotData", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/migrateSlotData", func(w http.ResponseWriter, r *http.Request) {
 		slotStr := r.URL.Query().Get("slot")
 		targetAddr := r.URL.Query().Get("targetAddr")
 
@@ -111,7 +111,7 @@ func (c *Cluster) registerSyncHandlers() {
 	})
 
 	// 4. 接收迁移数据（新主节点导入，支持 String/Hash）
-	c.serveMux.HandleFunc("/importSlotData", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/importSlotData", func(w http.ResponseWriter, r *http.Request) {
 		slotStr := r.URL.Query().Get("slot")
 		var slotData map[string]interface{}
 

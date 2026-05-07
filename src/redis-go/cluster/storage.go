@@ -160,3 +160,40 @@ func (c *Cluster) setHashData(key, field, val string) {
 	c.dataStore.(RedisData).Hash[key][field] = val
 	c.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now() // 哈希变更标记
 }
+
+// // TODO:测试使用,最后删除
+// // 辅助：获取Hash类型数据
+func (c *Cluster) GetHashData(key, field string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	hashMap, exists := c.dataStore.(RedisData).Hash[key]
+	if !exists {
+		return "", false
+	}
+	val, exists := hashMap[field]
+	return val, exists
+}
+
+// TODO:测试使用,最后删除
+// 辅助：获取String类型数据（供外部调用）
+func (c *Cluster) GetStringData(key string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	val, exists := c.dataStore.(RedisData).String[key]
+	return val, exists
+}
+
+// 辅助：设置Hash类型数据
+func (c *Cluster) SetHashData(key, field, val string) {
+	if _, exists := c.dataStore.(RedisData).Hash[key]; !exists {
+		c.dataStore.(RedisData).Hash[key] = make(map[string]string)
+	}
+	c.dataStore.(RedisData).Hash[key][field] = val
+	c.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now() // 哈希变更标记
+}
+
+// 辅助：设置String类型数据
+func (c *Cluster) SetStringData(key, val string) {
+	c.dataStore.(RedisData).String[key] = val
+	c.recentChanges[key] = time.Now() // 记录变更，用于增量同步
+}

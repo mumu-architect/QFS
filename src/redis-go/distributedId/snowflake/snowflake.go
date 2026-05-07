@@ -40,7 +40,7 @@ type Snowflake struct {
 }
 
 // -------------------------- 3. 构造函数（恢复dataCenterID参数校验）--------------------------
-func NewSnowflake(dataCenterID, workerID int64, epoch int64) (*Snowflake, error) {
+func newSnowflake(dataCenterID, workerID int64, epoch int64) (*Snowflake, error) {
 	// 校验数据中心ID合法性
 	if dataCenterID < 0 || dataCenterID > maxDataCenterID {
 		return nil, fmt.Errorf("dataCenterID 必须在 0-%d 之间（当前传入：%d）", maxDataCenterID, dataCenterID)

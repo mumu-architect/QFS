@@ -19,7 +19,7 @@ func (c *Cluster) registerAllHandlers() {
 // registerDataHandlers 注册数据操作接口（新增HGet/HSet）
 func (c *Cluster) registerDataHandlers() {
 	// 1. String - Set
-	c.serveMux.HandleFunc("/Set", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/Set", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		val := r.URL.Query().Get("val")
 
@@ -39,7 +39,7 @@ func (c *Cluster) registerDataHandlers() {
 	})
 
 	// 2. String - Get
-	c.serveMux.HandleFunc("/Get", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/Get", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		if key == "" {
 			http.Error(w, "key不能为空", http.StatusBadRequest)
@@ -56,7 +56,7 @@ func (c *Cluster) registerDataHandlers() {
 	})
 
 	// 3. Hash - HSet（新增）
-	c.serveMux.HandleFunc("/HSet", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/HSet", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		field := r.URL.Query().Get("field")
 		val := r.URL.Query().Get("val")
@@ -76,7 +76,7 @@ func (c *Cluster) registerDataHandlers() {
 	})
 
 	// 4. Hash - HGet（新增）
-	c.serveMux.HandleFunc("/HGet", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/HGet", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		field := r.URL.Query().Get("field")
 		if key == "" || field == "" {
@@ -94,7 +94,7 @@ func (c *Cluster) registerDataHandlers() {
 		//json.NewEncoder(w).Encode(val)
 	})
 	// 3. Hash - HMSet（批量设置）
-	c.serveMux.HandleFunc("/HMSet", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/HMSet", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		// 字段值对格式：field1=val1&field2=val2（支持多个）
 		fieldVals := make(map[string]string)
@@ -119,7 +119,7 @@ func (c *Cluster) registerDataHandlers() {
 	})
 
 	// 4. Hash - HMGet（批量获取）
-	c.serveMux.HandleFunc("/HMGet", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/HMGet", func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 		fieldsStr := r.URL.Query().Get("fields") // 格式：field1,field2,field3
 		if key == "" || fieldsStr == "" {
@@ -140,14 +140,14 @@ func (c *Cluster) registerDataHandlers() {
 		})
 	})
 	// 5. 增量变更查询（适配新数据结构）
-	c.serveMux.HandleFunc("/incrementalChanges", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/incrementalChanges", func(w http.ResponseWriter, r *http.Request) {
 		changes := c.getIncrementalChanges()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(changes)
 	})
 
 	// 6. 获取全量数据（适配新结构）
-	c.serveMux.HandleFunc("/getFullData", func(w http.ResponseWriter, r *http.Request) {
+	c.ServeMux.HandleFunc("/getFullData", func(w http.ResponseWriter, r *http.Request) {
 		fullData := c.getFullData()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(fullData)
@@ -211,13 +211,13 @@ func (c *Cluster) startHTTPAPI() {
 	//listenAddr := "1" + strings.Split(c.LocalNode.Addr, ":")[1]
 	listenAddr := c.LocalNode.Addr
 	// 创建HTTP服务器实例
-	c.httpServer = &http.Server{
+	c.HttpServer = &http.Server{
 		Addr:    listenAddr,
-		Handler: c.serveMux,
+		Handler: c.ServeMux,
 	}
 	log.Printf("HTTP服务启动，监听：%s", listenAddr)
 	// 启动HTTP服务
-	err := c.httpServer.ListenAndServe()
+	err := c.HttpServer.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Printf("HTTP服务启动失败：%v", err)
 	}
@@ -356,7 +356,7 @@ func (c *Cluster) HSet(w http.ResponseWriter, r *http.Request, key, field, val s
 	log.Printf("HSet：计算槽位：key=%s, slot=%d", key, slot)
 	//masterID := c.slotMap[slot]
 	masterID := c.GetSlotToLeaderID(slot)
-	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
+	if masterID != c.LocalNode.NodeID {
 		//return fmt.Errorf("从节点不支持写操作")
 		//TODO:跳转307,到目标主节点
 		targetAddr := c.GetNodeIdToNodeArr(masterID)
@@ -477,7 +477,7 @@ func (c *Cluster) HMSet(w http.ResponseWriter, r *http.Request, key string, fiel
 	slot := c.calcSlot(key)
 	//masterID := c.slotMap[slot]
 	masterID := c.GetSlotToLeaderID(slot)
-	if c.LocalNode.LeaderID != c.LocalNode.NodeID {
+	if masterID != c.LocalNode.NodeID {
 		//return fmt.Errorf("从节点不支持写操作")
 		//TODO:跳转307,到目标主节点
 		targetAddr := c.GetNodeIdToNodeArr(masterID)
