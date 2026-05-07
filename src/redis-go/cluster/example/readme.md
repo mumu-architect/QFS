@@ -25,27 +25,27 @@ curl http://localhost:6379/6379/Get?key=name
 ##### 2. Hash 操作（新增）
 ```go
 # 写入 Hash
-curl http://localhost:6379/6379/HSet?key=user:1&field=name&val=zhangsan
-curl http://localhost:6379/6379/HSet?key=user:1&field=age&val=20
+curl http://127.0.0.1:9004/HSet?key=user:1&val=zhangsan&field=name
+curl http://127.0.0.1:9004/HSet?key=user:1&field=age&val=20
 # 读取 Hash
-curl http://localhost:6379/6379/HGet?key=user:1&field=name
+curl http://127.0.0.1:9004/HGet?key=user:1&val=&field=name
 ```
 ##### 3. 验证数据一致性
 ```go
 # 从从节点读取 Hash（验证同步）
-curl http://localhost:6382/6382/HGet?key=user:1&field=age
+curl http://127.0.0.1:9006/HGet?key=user:1&val=&field=name
 # 查看落盘文件（redis-cluster-data 目录下）
 cat redis-cluster-data/6379.data
 ```
 ##### 4. HMSet 批量设置 Hash 字段
 ```go
 # 批量设置user:1的3个字段（name/age/city）
-curl "http://localhost:6379/6379/HMSet?key=user:1&name=zhangsan&age=20&city=beijing"
+curl http://127.0.0.1:9004/HMSet?key=user:1&age=20&city=beijing232&name=zhangsan232
 ```
 ##### 5. HMGet 批量获取 Hash 字段
 ```go
 # 批量获取user:1的name和city字段
-curl http://localhost:6379/6379/HMGet?key=user:1&fields=name,city
+curl http://127.0.0.1:9004/HMGet?key=user:1&fields=name,city
 # 响应结果
 {"key":"user:1","values":{"name":"zhangsan","city":"beijing"}}
 ```

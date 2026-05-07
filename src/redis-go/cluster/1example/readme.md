@@ -45,7 +45,7 @@ curl http://127.0.0.1:9004/HMSet?key=user:1&age=20&city=beijing232&name=zhangsan
 ##### 5. HMGet 批量获取 Hash 字段
 ```go
 # 批量获取user:1的name和city字段
-curl http://localhost:6379/6379/HMGet?key=user:1&fields=name,city
+curl http://127.0.0.1:9004/HMGet?key=user:1&fields=name,city
 # 响应结果
 {"key":"user:1","values":{"name":"zhangsan","city":"beijing"}}
 ```

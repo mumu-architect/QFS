@@ -163,33 +163,34 @@ func (c *Cluster) registerSyncHandlers() {
 		json.NewEncoder(w).Encode("导入成功")
 	})
 
+	//TODO:屏蔽槽位确认槽位迁移
 	// 5. 确认槽位迁移完成
-	c.serveMux.HandleFunc("/confirmSlotMigration", func(w http.ResponseWriter, r *http.Request) {
-		slotStr := r.URL.Query().Get("slot")
-		newMasterID := r.URL.Query().Get("newMasterID")
-
-		slot, err := strconv.Atoi(slotStr)
-		if err != nil || slot < 0 || slot >= TotalSlots {
-			http.Error(w, "无效的槽位", http.StatusBadRequest)
-			return
-		}
-
-		if newMasterID == "" {
-			http.Error(w, "新主节点ID不能为空", http.StatusBadRequest)
-			return
-		}
-
-		// 切换槽位映射
-		c.mu.Lock()
-		c.slotMap[slot] = newMasterID
-		// 清除迁移状态
-		delete(c.migratingSlots, slot)
-		delete(c.importingSlots, slot)
-		c.mu.Unlock()
-
-		log.Printf("槽位 %d 迁移确认完成，新主节点：%s", slot, newMasterID)
-		json.NewEncoder(w).Encode("确认成功")
-	})
+	//c.serveMux.HandleFunc("/confirmSlotMigration", func(w http.ResponseWriter, r *http.Request) {
+	//	slotStr := r.URL.Query().Get("slot")
+	//	newMasterID := r.URL.Query().Get("newMasterID")
+	//
+	//	slot, err := strconv.Atoi(slotStr)
+	//	if err != nil || slot < 0 || slot >= TotalSlots {
+	//		http.Error(w, "无效的槽位", http.StatusBadRequest)
+	//		return
+	//	}
+	//
+	//	if newMasterID == "" {
+	//		http.Error(w, "新主节点ID不能为空", http.StatusBadRequest)
+	//		return
+	//	}
+	//
+	//	// 切换槽位映射
+	//	c.mu.Lock()
+	//	c.slotMap[slot] = newMasterID
+	//	// 清除迁移状态
+	//	delete(c.migratingSlots, slot)
+	//	delete(c.importingSlots, slot)
+	//	c.mu.Unlock()
+	//
+	//	log.Printf("槽位 %d 迁移确认完成，新主节点：%s", slot, newMasterID)
+	//	json.NewEncoder(w).Encode("确认成功")
+	//})
 }
 
 // generateBatchSyncData 生成批次同步数据（支持断点续传）

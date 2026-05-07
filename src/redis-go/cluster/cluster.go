@@ -41,7 +41,7 @@ type Node struct {
 	LeaderID int        `json:"leaderID"`
 	Addr     string     `json:"addr"`   // 地址（IP:Port）//TODO:使用的地方比较多
 	Status   NodeStatus `json:"status"` // 在线/离线
-	Slots    []int      `json:"slots"`  // 负责的哈希槽（主节点有效）
+	//Slots    []int      `json:"slots"`  // 负责的哈希槽（主节点有效）
 }
 
 // Cluster 集群核心结构体
@@ -57,7 +57,7 @@ type Cluster struct {
 	AllNodeInfos       string
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
 	//Nodes          map[int]*Node       // 集群所有节点（ID->Node）
-	slotMap        map[int]string      // 哈希槽->主节点ID映射
+	//slotMap        map[int]string      // 哈希槽->主节点ID映射
 	dataStore      interface{}         // 本地存储（主节点读写，从节点同步）
 	replicas       map[int][]*Node     // 主节点ID->从节点列表映射
 	gossipConn     map[string]net.Conn // Gossip协议连接（Addr->Conn）
@@ -77,10 +77,6 @@ type Cluster struct {
 	httpServer     *http.Server         // HTTP服务器实例
 }
 
-var (
-	globalNodes = make(map[int]*Node) // 存储所有节点
-)
-
 // NewCluster 创建集群节点
 func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, masterAddr string) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -96,7 +92,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		Addr:     addr,
 		LeaderID: leaderID,
 		Status:   Online,
-		Slots:    []int{},
+		//Slots:    []int{},
 	}
 	cl := &Cluster{
 		ShardID:            shardID,
@@ -109,7 +105,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		//Nodes:         shardNodeInfo,
 		ShardNodeInfo: shardNodeInfo,
 		AllNodeInfos:  nodeInfo,
-		slotMap:       make(map[int]string),
+		//slotMap:       make(map[int]string),
 		// 初始化RedisData（替换原dataStore := make(map[string]string)）
 		dataStore:      nil,
 		replicas:       make(map[int][]*Node),
@@ -131,15 +127,12 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 	cl.initRedisData()
 
 	// 主节点初始化（加载数据+槽分配+落盘任务）
-	//if nodeType == Master {
 	if nodeID == leaderID {
 		if err := cl.loadPersistedData(); err != nil {
 			log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
 		} else {
 			log.Printf("主节点 %s 加载持久化数据成功", addr)
 		}
-		cl.initSlots()
-		//go cluster.persistDataLoop()
 	} else {
 		// 从节点初始化
 		log.Printf("=== 从节点 %s 开始初始化，主节点地址：%s ===", addr, masterAddr)
