@@ -26,8 +26,9 @@ type LogEntry struct {
 }
 
 type SyncResponse struct {
-	DataMap map[uint64][]byte `json:"dataMap"`
-	HasMore bool              `json:"hasMore"`
+	DataMap    map[uint64][]byte `json:"dataMap"`
+	HasMore    bool              `json:"hasMore"`
+	DataNumber uint64            `json:"dataNumber"`
 }
 type NodeLog struct {
 	LogPort  int `json:"logPort"`
@@ -43,7 +44,7 @@ const BatchLimit = 3 //线上800
 // InitWAL 初始化WAL 目录格式 log_日期
 func NewNodeLog(logPort int) (*NodeLog, error) {
 	// 拼接目录 log_yyyyMMdd
-	dir := fmt.Sprintf("log_data/log_%s/log_%s", logPort, time.Now().Format("20060102"))
+	dir := fmt.Sprintf("log_data/log_%d/log_%s", logPort, time.Now().Format("20060102"))
 	opt := &wal.Options{
 		SegmentSize: 1 << 10,
 		LogFormat:   wal.Binary,
@@ -183,7 +184,7 @@ func (nl *NodeLog) RestartBatchLoad(cl *cluster.Cluster) error {
 }
 
 // startHTTPAPI 启动HTTP服务
-func StartHTTPAPI(cl *cluster.Cluster) {
+func (nl *NodeLog) StartHTTPAPI(cl *cluster.Cluster) {
 	// 监听地址（与节点地址一致）
 	//TODO: listenAddr := c.LocalNode.Addr
 	//listenAddr := "1" + strings.Split(c.LocalNode.Addr, ":")[1]
@@ -203,7 +204,7 @@ func StartHTTPAPI(cl *cluster.Cluster) {
 	}
 }
 
-func (nl *NodeLog) registerDataHandlers(cl *cluster.Cluster) {
+func (nl *NodeLog) RegisterLogHandlers(cl *cluster.Cluster) {
 	cl.ServeMux.HandleFunc("/syncLog", func(w http.ResponseWriter, r *http.Request) {
 
 		key := r.URL.Query().Get("lastIndex")
@@ -240,8 +241,9 @@ func (nl *NodeLog) registerDataHandlers(cl *cluster.Cluster) {
 		// 判断是否还有下一批
 		hasMore := end < maxIdx
 		resp := SyncResponse{
-			DataMap: dataMap,
-			HasMore: hasMore,
+			DataMap:    dataMap,
+			HasMore:    hasMore,
+			DataNumber: uint64(len(dataMap)),
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
