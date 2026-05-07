@@ -31,8 +31,10 @@ type SyncResponse struct {
 	DataNumber uint64            `json:"dataNumber"`
 }
 type NodeLog struct {
-	LogPort  int `json:"logPort"`
-	LocalLog *wal.Log
+	LogPort    int `json:"logPort"`
+	LocalLog   *wal.Log
+	ServeMux   *http.ServeMux // 每个节点自己的HTTP路由
+	HttpServer *http.Server   // HTTP服务器实例
 }
 
 // TODO:1 << 20,1MB , 1 << 10,1kb
@@ -57,6 +59,7 @@ func NewNodeLog(logPort int) (*NodeLog, error) {
 	nodeLog := &NodeLog{
 		LogPort:  logPort,
 		LocalLog: log,
+		ServeMux: http.NewServeMux(),
 	}
 	return nodeLog, nil
 }
@@ -183,8 +186,8 @@ func (nl *NodeLog) RestartBatchLoad(cl *cluster.Cluster) error {
 	return nil
 }
 
-// startHTTPAPI 启动HTTP服务
-func (nl *NodeLog) StartHTTPAPI(cl *cluster.Cluster) {
+// StartHTTPAPI  启动HTTP服务
+func (nl *NodeLog) StartHTTPAPI() {
 	// 监听地址（与节点地址一致）
 	//TODO: listenAddr := c.LocalNode.Addr
 	//listenAddr := "1" + strings.Split(c.LocalNode.Addr, ":")[1]
@@ -192,20 +195,20 @@ func (nl *NodeLog) StartHTTPAPI(cl *cluster.Cluster) {
 
 	listenAddr := ":8081"
 	// 创建HTTP服务器实例
-	cl.HttpServer = &http.Server{
+	nl.HttpServer = &http.Server{
 		Addr:    listenAddr,
-		Handler: cl.ServeMux,
+		Handler: nl.ServeMux,
 	}
 	log.Printf("HTTP服务启动，监听：%s", listenAddr)
 	// 启动HTTP服务
-	err := cl.HttpServer.ListenAndServe()
+	err := nl.HttpServer.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("HTTP服务启动失败：%v", err)
 	}
 }
 
-func (nl *NodeLog) RegisterLogHandlers(cl *cluster.Cluster) {
-	cl.ServeMux.HandleFunc("/syncLog", func(w http.ResponseWriter, r *http.Request) {
+func (nl *NodeLog) RegisterLogHandlers() {
+	nl.ServeMux.HandleFunc("/syncLog", func(w http.ResponseWriter, r *http.Request) {
 
 		key := r.URL.Query().Get("lastIndex")
 		if key == "" {

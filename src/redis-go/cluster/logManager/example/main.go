@@ -67,8 +67,8 @@ func main() {
 	val2, _ := cl.GetStringData("name49")
 	fmt.Printf("name49:%v\n", val2)
 	//TODO:开启8081
-	nl.RegisterLogHandlers(cl)
-	nl.StartHTTPAPI(cl)
+	nl.RegisterLogHandlers()
+	nl.StartHTTPAPI()
 
 	//循环拉去leader的增量数据到本地节点
 	//go logManager.PullSyncLoop(cl, "127.0.0.1:8081")
