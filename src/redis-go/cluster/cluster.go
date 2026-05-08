@@ -13,15 +13,13 @@ import (
 
 	"github.com/lni/dragonboat/v4"
 	"mumu.com/redis-go/cluster/dragonboatRaft"
+	"mumu.com/redis-go/cluster/logManager"
 )
 
 // 常量定义
 const (
-	TotalSlots     = 16384           // 哈希槽总数（与Redis一致）
-	GossipInterval = 2 * time.Second // Gossip协议心跳间隔
-	FailTimeout    = 6 * time.Second // 节点故障判定超时
-	ReplicaCount   = 1               // 每个主节点默认从节点数
-	SyncBatchSize  = 100             // 主从同步批次大小
+	TotalSlots    = 16384 // 哈希槽总数（与Redis一致）
+	SyncBatchSize = 100   // 主从同步批次大小
 )
 
 // NodeStatus 节点状态
@@ -32,6 +30,8 @@ const (
 	Offline NodeStatus = "offline"
 )
 
+// 分批读取阈值 控制IO压力
+const batchSize = 3 //线上500
 // Node 集群节点信息
 type Node struct {
 	ShardID  int        `json:"shardID"`
@@ -53,6 +53,7 @@ type Cluster struct {
 	LocalNode          *Node // 本地节点
 	DragonBoatNodeHost *dragonboat.NodeHost
 	NodeMeta           *dragonboatRaft.NodeMeta
+	NodeLog            *logManager.NodeLog
 	ShardNodeInfo      map[int]*Node
 	AllNodeInfos       string
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
@@ -78,7 +79,7 @@ type Cluster struct {
 }
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, masterAddr string) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, masterAddr string) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
@@ -101,6 +102,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		LocalNode:          localNode,
 		DragonBoatNodeHost: nh,
 		NodeMeta:           nodeMeta,
+		NodeLog:            nodeLog,
 		//Nodes:     make(map[string]*Node),
 		//Nodes:         shardNodeInfo,
 		ShardNodeInfo: shardNodeInfo,
@@ -128,19 +130,20 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 
 	// 主节点初始化（加载数据+槽分配+落盘任务）
 	if nodeID == leaderID {
-		if err := cl.loadPersistedData(); err != nil {
-			log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
-		} else {
-			log.Printf("主节点 %s 加载持久化数据成功", addr)
-		}
+		//err := cl.loadPersistedData();
+		//if  err != nil {
+		//	log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
+		//} else {
+		//	log.Printf("主节点 %s 加载持久化数据成功", addr)
+		//}
 	} else {
 		// 从节点初始化
 		log.Printf("=== 从节点 %s 开始初始化，主节点地址：%s ===", addr, masterAddr)
 		// 将同步操作放到 goroutine 中，避免阻塞初始化过程
-		go cl.syncFromMaster(masterAddr)
+		//go cl.syncFromMaster(masterAddr)
 	}
 	//TODO:数据持久化，主从都可以
-	go cl.persistDataLoop()
+	//go cl.persistDataLoop()
 	fmt.Printf("11=======%v\n", cl.ShardNodeInfo)
 
 	//TODO: 注册所有助手方法
@@ -151,23 +154,23 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 }
 
 // persistDataLoop 数据持久化后台循环
-func (c *Cluster) persistDataLoop() {
+func (cl *Cluster) persistDataLoop() {
 	ticker := time.NewTicker(10 * time.Second) // 每10秒持久化一次
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			if c.LocalNode.LeaderID == c.LocalNode.NodeID {
-				if err := c.persistData(); err != nil {
-					log.Printf("主节点 %s 数据持久化失败：%v", c.LocalNode.Addr, err)
+			if cl.LocalNode.LeaderID == cl.LocalNode.NodeID {
+				if err := cl.persistData(); err != nil {
+					log.Printf("主节点 %s 数据持久化失败：%v", cl.LocalNode.Addr, err)
 				}
 			} else {
-				if err := c.persistSlaveData(); err != nil {
-					log.Printf("从节点 %s 数据持久化失败：%v", c.LocalNode.Addr, err)
+				if err := cl.persistSlaveData(); err != nil {
+					log.Printf("从节点 %s 数据持久化失败：%v", cl.LocalNode.Addr, err)
 				}
 			}
-		case <-c.ctx.Done():
+		case <-cl.ctx.Done():
 			return
 		}
 	}
@@ -205,8 +208,8 @@ func stringToMapNodes(shardID int, peers string) map[int]*Node {
 }
 
 // GetSlotToLeaderID 根据槽获取leaderID
-func (c *Cluster) GetSlotToLeaderID(keySolt int) int {
-	leaderId := dragonboatRaft.GetLeaderID(c.DragonBoatNodeHost, c.NodeMeta, keySolt)
+func (cl *Cluster) GetSlotToLeaderID(keySolt int) int {
+	leaderId := dragonboatRaft.GetLeaderID(cl.DragonBoatNodeHost, cl.NodeMeta, keySolt)
 	if leaderId > 0 {
 		return leaderId
 	} else {
@@ -216,8 +219,8 @@ func (c *Cluster) GetSlotToLeaderID(keySolt int) int {
 }
 
 // 通过节点nodeID获取节点地址
-func (c *Cluster) GetNodeIdToNodeArr(nodeId int) string {
-	peerList := strings.Split(c.AllNodeInfos, ",")
+func (cl *Cluster) GetNodeIdToNodeArr(nodeId int) string {
+	peerList := strings.Split(cl.AllNodeInfos, ",")
 	for _, peer := range peerList {
 		parts := strings.Split(peer, "=")
 		if len(parts) != 2 {

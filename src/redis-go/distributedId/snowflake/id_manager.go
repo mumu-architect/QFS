@@ -12,7 +12,7 @@ import (
 var sf *Snowflake
 
 // 初始化雪花对象
-func initIDgenerator() {
+func InitIDgenerator() {
 	// 1. 解析命令行参数
 	configPath := flag.String("config", "configs/redis-cluster.yaml", "Path to the configuration file")
 	flag.Parse()

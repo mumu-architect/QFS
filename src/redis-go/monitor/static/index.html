@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Raft分片集群监控</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑}
+        body{background:#FFF7F0;padding:15px;min-width:0}
+        .title{text-align:center;font-size:20px;color:#D48B5A;margin-bottom:15px;font-weight:bold}
+        .wrap{display:grid;grid-template-columns:1fr;gap:15px;margin-bottom:15px}
+        .card{background:#FFFAF5;border-radius:14px;padding:15px;border:1px solid #EFE2D5}
+        .chart-box{width:100%;height:290px}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th{background:#F4E6D9;color:#A06C48;padding:6px;border:1px solid #E5D6C8}
+        td{padding:6px;border:1px solid #EFE2D5;background:#fffbf6}
+        .active-row{color:#67AA79;font-weight:bold}
+        /* 强制分页固定底部 永远显示 */
+        .page{text-align:center;margin-top:12px;padding-top:8px}
+        .btn{padding:7px 16px;background:#F4B98C;color:#fff;border:none;border-radius:5px;margin:0 4px}
+        .leader{color:#67AA79}
+        .follower{color:#E0A86E}
+        .offline{color:#D1705F}
+
+        @media(min-width:768px){
+            .wrap{grid-template-columns:1fr 1fr}
+        }
+    </style>
+</head>
+<body>
+    <div class="title">Raft分片集群综合监控</div>
+    <div class="wrap">
+        <div class="card">
+            <h3 style="text-align:center;margin-bottom:10px;color:#A06C48;font-size:14px">分片列表总览</h3>
+            <table>
+                <thead>
+                    <tr><th>分片编号</th><th>节点数</th><th>主节点ID</th><th>状态</th></tr>
+                </thead>
+                <tbody id="shardTable"></tbody>
+            </table>
+            <!-- 分页单独放外层 强制显示 -->
+            <div class="page">
+                <button class="btn" onclick="shardPrev()">上一页</button>
+                <span>第<span id="shardPage">1</span>页</span>
+                <button class="btn" onclick="shardNext()">下一页</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="resourceChart" class="chart-box"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="text-align:center;margin-bottom:10px;color:#A06C48;font-size:14px" id="nodeTitle">请选择分片查看详情</h3>
+        <table>
+            <thead>
+                <tr><th>节点ID</th><th>角色</th><th>状态</th><th>CPU</th><th>内存</th><th>磁盘</th><th>延迟</th></tr>
+            </thead>
+            <tbody id="nodeTable"></tbody>
+        </table>
+        <div class="page">
+            <button class="btn" onclick="nodePrev()">上一页</button>
+            <span>第<span id="nodePage">1</span>页</span>
+            <button class="btn" onclick="nodeNext()">下一页</button>
+        </div>
+    </div>
+
+<script>
+const resChart = echarts.init(document.getElementById('resourceChart'));
+const totalShard=100;
+let shardPage=1;
+const shardPageSize=5; // 每页固定5条 手机刚好放下
+let selectShardId=null;
+let nodePage=1;
+const nodePageSize=2;
+
+function getShardList(){
+    let s=(shardPage-1)*shardPageSize;
+    let e=s+shardPageSize;
+    let arr=[];
+    for(let i=s+1;i<=e&&i<=totalShard;i++){
+        arr.push({shardId:i,nodeCount:3,leaderId:i*3-2,status:i%18===0?"异常":"正常"})
+    }
+    return arr;
+}
+function getNodeList(sid){
+    return [
+        {id:sid*3-2,role:"主节点",status:"正常",cpu:25,mem:42,disk:22,delay:8},
+        {id:sid*3-1,role:"从节点",status:"正常",cpu:28,mem:45,disk:24,delay:10},
+        {id:sid*3,role:"从节点",status:sid%15===0?"离线":"正常",cpu:26,mem:43,disk:23,delay:9}
+    ]
+}
+function renderChart(){
+    let opt={
+        title:{text:"分片资源均值统计",left:"center",top:0},
+        legend:{data:["CPU","内存","磁盘"],top:40,left:"center"},
+        grid:{left:"6%",right:"4%",bottom:12,top:"42%",containLabel:true},
+        color:["#F4B98C","#A8D8B9","#FFC894"],
+        xAxis:{data:["全局平均","选中分片"]},
+        yAxis:{max:100,name:"使用率(%)"},
+        series:[
+            {name:"CPU",type:"bar",data:[32,selectShardId?27:32]},
+            {name:"内存",type:"bar",data:[49,selectShardId?43:49]},
+            {name:"磁盘",type:"bar",data:[30,selectShardId?21:30]}
+        ]
+    }
+    resChart.setOption(opt);
+}
+function renderShardTable(){
+    let list=getShardList();
+    let html="";
+    list.forEach(item=>{
+        let c=selectShardId===item.shardId?"active-row":"";
+        html+=`<tr class="${c}" onclick="chooseShard(${item.shardId})">
+            <td>${item.shardId}</td><td>${item.nodeCount}</td><td>${item.leaderId}</td><td>${item.status}</td>
+        </tr>`
+    })
+    document.getElementById("shardTable").innerHTML=html;
+    document.getElementById("shardPage").innerText=shardPage;
+}
+function renderNodeTable(){
+    if(!selectShardId){
+        document.getElementById("nodeTitle").innerText="请选择分片查看节点详情";
+        document.getElementById("nodeTable").innerHTML="<tr><td colspan='7'>暂无数据</td>";
+        return;
+    }
+    document.getElementById("nodeTitle").innerText=`分片${selectShardId}节点详情`;
+    let list=getNodeList(selectShardId);
+    let html="";
+    list.forEach(item=>{
+        let c=item.role=="主节点"?"leader":item.status=="离线"?"offline":"follower";
+        html+=`<tr>
+            <td>${item.id}</td><td class="${c}">${item.role}</td><td>${item.status}</td>
+            <td>${item.cpu}%</td><td>${item.mem}%</td><td>${item.disk}%</td><td>${item.delay}ms</td>
+        </tr>`
+    })
+    document.getElementById("nodeTable").innerHTML=html;
+}
+function chooseShard(id){
+    selectShardId=id;nodePage=1;
+    renderShardTable();renderChart();renderNodeTable();
+}
+function shardPrev(){if(shardPage>1){shardPage--;renderShardTable()}}
+function shardNext(){let m=Math.ceil(totalShard/shardPageSize);if(shardPage<m){shardPage++;renderShardTable()}}
+function nodePrev(){if(nodePage>1)nodePage--;renderNodeTable()}
+function nodeNext(){nodePage++;renderNodeTable()}
+window.onresize=()=>resChart.resize();
+init();
+function init(){renderShardTable();renderChart();renderNodeTable()}
+</script>
+</body>
+</html>

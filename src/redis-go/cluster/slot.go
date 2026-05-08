@@ -70,7 +70,7 @@ var crc16Tab = [256]uint16{
 
 // CalcSlot  工业级哈希槽计算
 // 100% 兼容 Redis、支持 hash_tag {xxx}、零分配、高性能
-func (c *Cluster) calcSlot(key string) int {
+func (cl *Cluster) calcSlot(key string) int {
 	bKey := []byte(key)
 	n := len(bKey)
 	if n == 0 {

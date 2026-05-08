@@ -12,9 +12,9 @@ import (
 )
 
 // registerSyncHandlers 注册同步相关HTTP接口
-func (c *Cluster) registerSyncHandlers() {
+func (cl *Cluster) registerSyncHandlers() {
 	// 1. 从节点请求主节点同步（带偏移量，支持断点续传）
-	c.ServeMux.HandleFunc("/syncWithOffset", func(w http.ResponseWriter, r *http.Request) {
+	cl.ServeMux.HandleFunc("/syncWithOffset", func(w http.ResponseWriter, r *http.Request) {
 		// 解析请求参数
 		offsetStr := r.URL.Query().Get("offset")
 		batchSizeStr := r.URL.Query().Get("batchSize")
@@ -30,13 +30,13 @@ func (c *Cluster) registerSyncHandlers() {
 		}
 
 		// 生成批次同步数据
-		syncResp := c.generateBatchSyncData(offset, batchSize)
+		syncResp := cl.generateBatchSyncData(offset, batchSize)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(syncResp)
 	})
 
 	// 2. 从节点接收主节点推送的增量数据（支持 String/Hash）
-	c.ServeMux.HandleFunc("/syncData", func(w http.ResponseWriter, r *http.Request) {
+	cl.ServeMux.HandleFunc("/syncData", func(w http.ResponseWriter, r *http.Request) {
 		// 解析通用参数
 		dataType := r.URL.Query().Get("type") // string 或 hash
 		key := r.URL.Query().Get("key")
@@ -49,35 +49,35 @@ func (c *Cluster) registerSyncHandlers() {
 		}
 
 		// 按类型写入数据
-		c.mu.Lock()
-		defer c.mu.Unlock()
+		cl.mu.Lock()
+		defer cl.mu.Unlock()
 		switch dataType {
 		case "string":
-			c.dataStore.(RedisData).String[key] = val
-			c.recentChanges[key] = time.Now()
+			cl.dataStore.(RedisData).String[key] = val
+			cl.recentChanges[key] = time.Now()
 		case "hash":
 			if field == "" {
 				http.Error(w, "hash类型必须指定field", http.StatusBadRequest)
 				return
 			}
-			if _, exists := c.dataStore.(RedisData).Hash[key]; !exists {
-				c.dataStore.(RedisData).Hash[key] = make(map[string]string)
+			if _, exists := cl.dataStore.(RedisData).Hash[key]; !exists {
+				cl.dataStore.(RedisData).Hash[key] = make(map[string]string)
 			}
-			c.dataStore.(RedisData).Hash[key][field] = val
-			c.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now()
+			cl.dataStore.(RedisData).Hash[key][field] = val
+			cl.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now()
 		default:
 			http.Error(w, "不支持的数据类型："+dataType, http.StatusBadRequest)
 			return
 		}
 
 		// 从节点数据落盘
-		go c.persistSlaveData()
+		go cl.persistSlaveData()
 
 		json.NewEncoder(w).Encode("同步成功")
 	})
 
 	// 3. 迁移槽位数据（原主节点向新主节点推送）
-	c.ServeMux.HandleFunc("/migrateSlotData", func(w http.ResponseWriter, r *http.Request) {
+	cl.ServeMux.HandleFunc("/migrateSlotData", func(w http.ResponseWriter, r *http.Request) {
 		slotStr := r.URL.Query().Get("slot")
 		targetAddr := r.URL.Query().Get("targetAddr")
 
@@ -93,7 +93,7 @@ func (c *Cluster) registerSyncHandlers() {
 		}
 
 		// 筛选该槽位的所有数据
-		slotData := c.getSlotData(slot)
+		slotData := cl.getSlotData(slot)
 		if len(slotData) == 0 {
 			log.Printf("槽位 %d 无数据可迁移", slot)
 			json.NewEncoder(w).Encode("迁移成功（无数据）")
@@ -101,7 +101,7 @@ func (c *Cluster) registerSyncHandlers() {
 		}
 
 		// 推送到目标节点
-		err = c.pushSlotData(targetAddr, slot, slotData)
+		err = cl.pushSlotData(targetAddr, slot, slotData)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("数据推送失败：%v", err), http.StatusInternalServerError)
 			return
@@ -111,7 +111,7 @@ func (c *Cluster) registerSyncHandlers() {
 	})
 
 	// 4. 接收迁移数据（新主节点导入，支持 String/Hash）
-	c.ServeMux.HandleFunc("/importSlotData", func(w http.ResponseWriter, r *http.Request) {
+	cl.ServeMux.HandleFunc("/importSlotData", func(w http.ResponseWriter, r *http.Request) {
 		slotStr := r.URL.Query().Get("slot")
 		var slotData map[string]interface{}
 
@@ -128,36 +128,36 @@ func (c *Cluster) registerSyncHandlers() {
 
 		// 导入 String 数据
 		if stringData, exists := slotData["string"].(map[string]interface{}); exists {
-			c.mu.Lock()
+			cl.mu.Lock()
 			for k, v := range stringData {
-				c.dataStore.(RedisData).String[k] = fmt.Sprintf("%v", v)
-				c.recentChanges[k] = time.Now()
+				cl.dataStore.(RedisData).String[k] = fmt.Sprintf("%v", v)
+				cl.recentChanges[k] = time.Now()
 			}
-			c.mu.Unlock()
+			cl.mu.Unlock()
 		}
 
 		// 导入 Hash 数据
 		if hashData, exists := slotData["hash"].(map[string]interface{}); exists {
-			c.mu.Lock()
+			cl.mu.Lock()
 			for key, fieldMap := range hashData {
-				if _, exists := c.dataStore.(RedisData).Hash[key]; !exists {
-					c.dataStore.(RedisData).Hash[key] = make(map[string]string)
+				if _, exists := cl.dataStore.(RedisData).Hash[key]; !exists {
+					cl.dataStore.(RedisData).Hash[key] = make(map[string]string)
 				}
 				for field, val := range fieldMap.(map[string]interface{}) {
-					c.dataStore.(RedisData).Hash[key][field] = fmt.Sprintf("%v", val)
-					c.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now()
+					cl.dataStore.(RedisData).Hash[key][field] = fmt.Sprintf("%v", val)
+					cl.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now()
 				}
 			}
-			c.mu.Unlock()
+			cl.mu.Unlock()
 		}
 
 		// 标记导入状态
-		c.mu.Lock()
-		c.importingSlots[slot] = r.RemoteAddr
-		c.mu.Unlock()
+		cl.mu.Lock()
+		cl.importingSlots[slot] = r.RemoteAddr
+		cl.mu.Unlock()
 
 		log.Printf("节点 %s 导入槽位 %d 数据（String:%d 条，Hash:%d 个）",
-			c.LocalNode.Addr, slot,
+			cl.LocalNode.Addr, slot,
 			len(slotData["string"].(map[string]interface{})),
 			len(slotData["hash"].(map[string]interface{})))
 		json.NewEncoder(w).Encode("导入成功")
@@ -194,12 +194,12 @@ func (c *Cluster) registerSyncHandlers() {
 }
 
 // generateBatchSyncData 生成批次同步数据（支持断点续传）
-func (c *Cluster) generateBatchSyncData(offset int64, batchSize int) map[string]interface{} {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+func (cl *Cluster) generateBatchSyncData(offset int64, batchSize int) map[string]interface{} {
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
 
 	// 提取所有key并排序（保证偏移量一致性）
-	redisData := c.dataStore.(RedisData)
+	redisData := cl.dataStore.(RedisData)
 	keys := make([]string, 0, len(redisData.String))
 	for k := range redisData.String {
 		keys = append(keys, k)
@@ -235,8 +235,8 @@ func (c *Cluster) generateBatchSyncData(offset int64, batchSize int) map[string]
 }
 
 // syncFromMaster 从节点初始化同步（全量+增量+断点续传）
-func (c *Cluster) syncFromMaster(masterAddr string) error {
-	log.Printf("从节点 %s 开始同步主节点 %s", c.LocalNode.Addr, masterAddr)
+func (cl *Cluster) syncFromMaster(masterAddr string) error {
+	log.Printf("从节点 %s 开始同步主节点 %s", cl.LocalNode.Addr, masterAddr)
 
 	// 循环同步直到完成全量数据
 	for {
@@ -244,7 +244,7 @@ func (c *Cluster) syncFromMaster(masterAddr string) error {
 		// 带偏移量请求同步数据
 		//TODO:
 		url := fmt.Sprintf("http://%s/syncWithOffset?offset=%d&batchSize=%d",
-			masterAddr, c.lastSyncOffset, SyncBatchSize)
+			masterAddr, cl.lastSyncOffset, SyncBatchSize)
 		resp, err := http.Get(url)
 		if err != nil {
 			log.Printf("同步请求失败：%v，1秒后重试", err)
@@ -265,27 +265,27 @@ func (c *Cluster) syncFromMaster(masterAddr string) error {
 		batchData := syncResp["data"].(map[string]interface{})
 		// JSON 解析的数字默认是 float64，需要先转换
 		offsetFloat := syncResp["offset"].(float64)
-		c.lastSyncOffset = int64(offsetFloat)
+		cl.lastSyncOffset = int64(offsetFloat)
 		finished := syncResp["finished"].(bool)
 
 		// 写入本地存储
-		c.mu.Lock()
+		cl.mu.Lock()
 		for k, v := range batchData {
-			c.setStringData(k, v.(string))
+			cl.setStringData(k, v.(string))
 		}
-		c.mu.Unlock()
+		cl.mu.Unlock()
 
 		log.Printf("从节点 %s 同步批次完成：偏移量=%d，数据量=%d",
-			c.LocalNode.Addr, c.lastSyncOffset, len(batchData))
+			cl.LocalNode.Addr, cl.lastSyncOffset, len(batchData))
 
 		// 全量同步完成则退出循环
 		if finished {
-			c.mu.RLock()
-			redisData := c.dataStore.(RedisData)
-			log.Printf("从节点 %s 全量同步完成（共%d条数据）", c.LocalNode.Addr, len(redisData.String))
-			c.mu.RUnlock()
+			cl.mu.RLock()
+			redisData := cl.dataStore.(RedisData)
+			log.Printf("从节点 %s 全量同步完成（共%d条数据）", cl.LocalNode.Addr, len(redisData.String))
+			cl.mu.RUnlock()
 			// 全量同步完成后持久化数据
-			go c.persistSlaveData()
+			go cl.persistSlaveData()
 			break
 		}
 
@@ -294,61 +294,61 @@ func (c *Cluster) syncFromMaster(masterAddr string) error {
 	}
 
 	// 启动增量同步循环
-	go c.incrementalSyncLoop(masterAddr)
+	go cl.incrementalSyncLoop(masterAddr)
 	return nil
 }
 
 // incrementalSyncLoop 增量同步循环（拉取+推送双模式）
-func (c *Cluster) incrementalSyncLoop(masterAddr string) {
+func (cl *Cluster) incrementalSyncLoop(masterAddr string) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-cl.ctx.Done():
 			return
 		case <-ticker.C:
 			// 拉取增量变更（兜底，防止推送丢失）
-			changes, err := c.fetchMasterChanges(masterAddr)
+			changes, err := cl.fetchMasterChanges(masterAddr)
 			if err != nil {
 				log.Printf("增量拉取失败：%v", err)
 				continue
 			}
 
 			// 应用增量变更
-			c.mu.Lock()
+			cl.mu.Lock()
 			for k, v := range changes {
 				// 处理不同类型的增量数据
 				if changeData, ok := v.(map[string]interface{}); ok {
 					switch changeData["type"].(string) {
 					case "string":
 						if val, ok := changeData["val"].(string); ok {
-							c.setStringData(k, val)
+							cl.setStringData(k, val)
 						}
 					case "hash":
 						if key, ok := changeData["key"].(string); ok {
 							if field, ok := changeData["field"].(string); ok {
 								if val, ok := changeData["val"].(string); ok {
-									c.setHashData(key, field, val)
+									cl.setHashData(key, field, val)
 								}
 							}
 						}
 					}
 				}
 			}
-			c.mu.Unlock()
+			cl.mu.Unlock()
 
 			if len(changes) > 0 {
-				log.Printf("从节点 %s 增量同步 %d 条数据", c.LocalNode.Addr, len(changes))
+				log.Printf("从节点 %s 增量同步 %d 条数据", cl.LocalNode.Addr, len(changes))
 				// 增量数据落盘
-				go c.persistSlaveData()
+				go cl.persistSlaveData()
 			}
 		}
 	}
 }
 
 // fetchMasterChanges 从主节点拉取增量变更
-func (c *Cluster) fetchMasterChanges(masterAddr string) (map[string]interface{}, error) {
+func (cl *Cluster) fetchMasterChanges(masterAddr string) (map[string]interface{}, error) {
 	//TODO:
 	// url := fmt.Sprintf("http://localhost%s/incrementalChanges", masterAddr)
 	url := fmt.Sprintf("http://%s/incrementalChanges", masterAddr)
@@ -367,12 +367,12 @@ func (c *Cluster) fetchMasterChanges(masterAddr string) (map[string]interface{},
 
 // syncToReplicas 主节点推送数据到所有从节点
 // 适配：更新 syncToReplicas 支持 String/Hash 双类型推送
-func (c *Cluster) syncToReplicas(changeKey, val string) {
+func (cl *Cluster) syncToReplicas(changeKey, val string) {
 	fmt.Println("00000000000000000000")
-	c.mu.RLock()
-	replicas := c.replicas[c.LocalNode.NodeID]
-	redisData := c.dataStore.(RedisData)
-	c.mu.RUnlock()
+	cl.mu.RLock()
+	replicas := cl.replicas[cl.LocalNode.NodeID]
+	redisData := cl.dataStore.(RedisData)
+	cl.mu.RUnlock()
 	fmt.Println("3333333333333333333333")
 	if len(replicas) == 0 {
 		return
@@ -431,17 +431,17 @@ func (c *Cluster) syncToReplicas(changeKey, val string) {
 
 // getSlotData 获取指定槽位的所有数据
 // 适配：更新 getSlotData 支持 String/Hash 槽位数据筛选
-func (c *Cluster) getSlotData(slot int) map[string]interface{} {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+func (cl *Cluster) getSlotData(slot int) map[string]interface{} {
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
 
 	slotData := make(map[string]interface{})
-	redisData := c.dataStore.(RedisData)
+	redisData := cl.dataStore.(RedisData)
 
 	// 筛选 String 类型（按 key 计算槽位）
 	stringData := make(map[string]string)
 	for k, v := range redisData.String {
-		if c.calcSlot(k) == slot {
+		if cl.calcSlot(k) == slot {
 			stringData[k] = v
 		}
 	}
@@ -452,7 +452,7 @@ func (c *Cluster) getSlotData(slot int) map[string]interface{} {
 	// 筛选 Hash 类型（按 key 计算槽位）
 	hashData := make(map[string]map[string]string)
 	for k, fieldMap := range redisData.Hash {
-		if c.calcSlot(k) == slot {
+		if cl.calcSlot(k) == slot {
 			hashData[k] = fieldMap
 		}
 	}
@@ -465,7 +465,7 @@ func (c *Cluster) getSlotData(slot int) map[string]interface{} {
 
 // pushSlotData 推送槽位数据到目标节点
 // 适配：更新 pushSlotData 支持 String/Hash 槽位数据迁移
-func (c *Cluster) pushSlotData(targetAddr string, slot int, data map[string]interface{}) error {
+func (cl *Cluster) pushSlotData(targetAddr string, slot int, data map[string]interface{}) error {
 	url := fmt.Sprintf("http://%s/%s/importSlotData?slot=%d", targetAddr, targetAddr, slot)
 	reqBody, err := json.Marshal(data)
 	if err != nil {

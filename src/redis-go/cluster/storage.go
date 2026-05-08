@@ -22,8 +22,8 @@ type RedisData struct {
 }
 
 // 初始化数据存储（替换原dataStore）
-func (c *Cluster) initRedisData() {
-	c.dataStore = RedisData{
+func (cl *Cluster) initRedisData() {
+	cl.dataStore = RedisData{
 		String: make(map[string]string),
 		Hash:   make(map[string]map[string]string),
 	}
@@ -45,41 +45,41 @@ func getDataFilePath(nodeId int, addr string) string {
 }
 
 // 数据落盘：序列化RedisData整体落盘
-func (c *Cluster) persistData() error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+func (cl *Cluster) persistData() error {
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
 
 	// 序列化整个RedisData结构
-	data, err := json.Marshal(c.dataStore)
+	data, err := json.Marshal(cl.dataStore)
 	if err != nil {
 		log.Printf("数据序列化失败：%v", err)
 		return err
 	}
 
-	tmpFile := c.dataFile + ".tmp"
+	tmpFile := cl.dataFile + ".tmp"
 	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
 		log.Printf("临时文件写入失败：%v", err)
 		return err
 	}
 
-	if err := os.Rename(tmpFile, c.dataFile); err != nil {
+	if err := os.Rename(tmpFile, cl.dataFile); err != nil {
 		log.Printf("文件替换失败：%v", err)
 		return err
 	}
 
 	log.Printf("主节点 %s 数据落盘成功（String:%d 条，Hash:%d 个）",
-		c.LocalNode.Addr, len(c.dataStore.(RedisData).String), len(c.dataStore.(RedisData).Hash))
+		cl.LocalNode.Addr, len(cl.dataStore.(RedisData).String), len(cl.dataStore.(RedisData).Hash))
 	return nil
 }
 
 // 加载持久化数据：反序列化为RedisData
-func (c *Cluster) loadPersistedData() error {
-	if _, err := os.Stat(c.dataFile); os.IsNotExist(err) {
-		c.initRedisData() // 无文件时初始化空结构
+func (cl *Cluster) loadPersistedData() error {
+	if _, err := os.Stat(cl.dataFile); os.IsNotExist(err) {
+		cl.initRedisData() // 无文件时初始化空结构
 		return nil
 	}
 
-	data, err := os.ReadFile(c.dataFile)
+	data, err := os.ReadFile(cl.dataFile)
 	if err != nil {
 		return fmt.Errorf("文件读取失败：%v", err)
 	}
@@ -89,62 +89,62 @@ func (c *Cluster) loadPersistedData() error {
 		return fmt.Errorf("数据反序列化失败：%v", err)
 	}
 
-	c.dataStore = redisData
+	cl.dataStore = redisData
 	log.Printf("加载持久化数据成功（String:%d 条，Hash:%d 个）",
 		len(redisData.String), len(redisData.Hash))
 	return nil
 }
 
 // 从节点数据落盘（同主节点格式）
-func (c *Cluster) persistSlaveData() error {
-	if c.LocalNode.LeaderID == c.LocalNode.NodeID {
+func (cl *Cluster) persistSlaveData() error {
+	if cl.LocalNode.LeaderID == cl.LocalNode.NodeID {
 		return nil
 	}
 
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
 
-	data, err := json.Marshal(c.dataStore)
+	data, err := json.Marshal(cl.dataStore)
 	if err != nil {
-		log.Printf("从节点 %s 数据序列化失败：%v", c.LocalNode.Addr, err)
+		log.Printf("从节点 %s 数据序列化失败：%v", cl.LocalNode.Addr, err)
 		return err
 	}
 
-	tmpFile := c.dataFile + ".slave.tmp"
+	tmpFile := cl.dataFile + ".slave.tmp"
 	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
-		log.Printf("从节点 %s 临时文件写入失败：%v", c.LocalNode.Addr, err)
+		log.Printf("从节点 %s 临时文件写入失败：%v", cl.LocalNode.Addr, err)
 		return err
 	}
 
-	if err := os.Rename(tmpFile, c.dataFile); err != nil {
-		log.Printf("从节点 %s 文件替换失败：%v", c.LocalNode.Addr, err)
+	if err := os.Rename(tmpFile, cl.dataFile); err != nil {
+		log.Printf("从节点 %s 文件替换失败：%v", cl.LocalNode.Addr, err)
 		return err
 	}
 
 	log.Printf("从节点 %s 数据落盘成功（String:%d 条，Hash:%d 个）",
-		c.LocalNode.Addr, len(c.dataStore.(RedisData).String), len(c.dataStore.(RedisData).Hash))
+		cl.LocalNode.Addr, len(cl.dataStore.(RedisData).String), len(cl.dataStore.(RedisData).Hash))
 	return nil
 }
 
 // 辅助：获取String类型数据（供外部调用）
-func (c *Cluster) getStringData(key string) (string, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	val, exists := c.dataStore.(RedisData).String[key]
+func (cl *Cluster) getStringData(key string) (string, bool) {
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
+	val, exists := cl.dataStore.(RedisData).String[key]
 	return val, exists
 }
 
 // 辅助：设置String类型数据
-func (c *Cluster) setStringData(key, val string) {
-	c.dataStore.(RedisData).String[key] = val
-	c.recentChanges[key] = time.Now() // 记录变更，用于增量同步
+func (cl *Cluster) setStringData(key, val string) {
+	cl.dataStore.(RedisData).String[key] = val
+	cl.recentChanges[key] = time.Now() // 记录变更，用于增量同步
 }
 
 // 辅助：获取Hash类型数据
-func (c *Cluster) getHashData(key, field string) (string, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	hashMap, exists := c.dataStore.(RedisData).Hash[key]
+func (cl *Cluster) getHashData(key, field string) (string, bool) {
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
+	hashMap, exists := cl.dataStore.(RedisData).Hash[key]
 	if !exists {
 		return "", false
 	}
@@ -153,20 +153,23 @@ func (c *Cluster) getHashData(key, field string) (string, bool) {
 }
 
 // 辅助：设置Hash类型数据
-func (c *Cluster) setHashData(key, field, val string) {
-	if _, exists := c.dataStore.(RedisData).Hash[key]; !exists {
-		c.dataStore.(RedisData).Hash[key] = make(map[string]string)
+func (cl *Cluster) setHashData(key, field, val string) {
+	if _, exists := cl.dataStore.(RedisData).Hash[key]; !exists {
+		cl.dataStore.(RedisData).Hash[key] = make(map[string]string)
 	}
-	c.dataStore.(RedisData).Hash[key][field] = val
-	c.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now() // 哈希变更标记
+	cl.dataStore.(RedisData).Hash[key][field] = val
+	cl.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now() // 哈希变更标记
+
+	//
+
 }
 
 // // TODO:测试使用,最后删除
 // // 辅助：获取Hash类型数据
-func (c *Cluster) GetHashData(key, field string) (string, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	hashMap, exists := c.dataStore.(RedisData).Hash[key]
+func (cl *Cluster) GetHashData(key, field string) (string, bool) {
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
+	hashMap, exists := cl.dataStore.(RedisData).Hash[key]
 	if !exists {
 		return "", false
 	}
@@ -176,24 +179,24 @@ func (c *Cluster) GetHashData(key, field string) (string, bool) {
 
 // TODO:测试使用,最后删除
 // 辅助：获取String类型数据（供外部调用）
-func (c *Cluster) GetStringData(key string) (string, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	val, exists := c.dataStore.(RedisData).String[key]
+func (cl *Cluster) GetStringData(key string) (string, bool) {
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
+	val, exists := cl.dataStore.(RedisData).String[key]
 	return val, exists
 }
 
 // 辅助：设置Hash类型数据
-func (c *Cluster) SetHashData(key, field, val string) {
-	if _, exists := c.dataStore.(RedisData).Hash[key]; !exists {
-		c.dataStore.(RedisData).Hash[key] = make(map[string]string)
+func (cl *Cluster) SetHashData(key, field, val string) {
+	if _, exists := cl.dataStore.(RedisData).Hash[key]; !exists {
+		cl.dataStore.(RedisData).Hash[key] = make(map[string]string)
 	}
-	c.dataStore.(RedisData).Hash[key][field] = val
-	c.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now() // 哈希变更标记
+	cl.dataStore.(RedisData).Hash[key][field] = val
+	cl.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now() // 哈希变更标记
 }
 
 // 辅助：设置String类型数据
-func (c *Cluster) SetStringData(key, val string) {
-	c.dataStore.(RedisData).String[key] = val
-	c.recentChanges[key] = time.Now() // 记录变更，用于增量同步
+func (cl *Cluster) SetStringData(key, val string) {
+	cl.dataStore.(RedisData).String[key] = val
+	cl.recentChanges[key] = time.Now() // 记录变更，用于增量同步
 }
