@@ -144,7 +144,7 @@ func main() {
 		//TODO:集群管理
 		cl := cluster.NewCluster(node.ShardID, leaderId, node.NodeID, node.IP, node.Port, node.Peers, node.NodeInfo, nodeSlotMetas, nh, nodeMeta, nl, masterAddr)
 
-		fmt.Printf("333====data: %v =======%v \n", cl.NodeAllSlotMetas.NodeSlotMetas[0].Slots, cl.NodeAllSlotMetas.NodeSlotMetas[1].Slots)
+		//fmt.Printf("333====data: %v =======%v \n", cl.NodeAllSlotMetas.NodeSlotMetas[0].Slots, cl.NodeAllSlotMetas.NodeSlotMetas[1].Slots)
 
 		//11524  5
 		//TODO:根据槽取shardID,再根据shardID 动态取leaderID

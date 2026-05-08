@@ -21,7 +21,7 @@ func NewDragonBoatRaftNode(shardID int, nodeID int, shardNodeInfo string, allNod
 	allNodeInfos := formatNodeInfo(allNodeInfo)
 	nh := setConfig(nodeID, allNodeInfos)
 	//TODO:启动监控,生产环境必须开启
-	//StartMonitor(nodeID)
+	StartMonitor(nodeID)
 	// TODO:启动：全局元数据 Shard 9999（所有6个节点都加入）
 	setGlobalShard(nh, nodeID, allNodeInfos)
 

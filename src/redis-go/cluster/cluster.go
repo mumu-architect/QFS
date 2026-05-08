@@ -125,27 +125,34 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		lastActive:     make(map[int]time.Time),
 	}
 
-	// 初始化数据结构
+	//TODO: 初始化数据结构
 	cl.initRedisData()
 
-	// 主节点初始化（加载数据+槽分配+落盘任务）
-	if nodeID == leaderID {
-		//err := cl.loadPersistedData();
-		//if  err != nil {
-		//	log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
-		//} else {
-		//	log.Printf("主节点 %s 加载持久化数据成功", addr)
-		//}
-	} else {
-		// 从节点初始化
-		log.Printf("=== 从节点 %s 开始初始化，主节点地址：%s ===", addr, masterAddr)
-		// 将同步操作放到 goroutine 中，避免阻塞初始化过程
-		//go cl.syncFromMaster(masterAddr)
-	}
+	//// 主节点初始化（加载数据+槽分配+落盘任务）
+	//if nodeID == leaderID {
+	//	//err := cl.loadPersistedData();
+	//	//if  err != nil {
+	//	//	log.Printf("主节点 %s 加载持久化数据失败：%v", addr, err)
+	//	//} else {
+	//	//	log.Printf("主节点 %s 加载持久化数据成功", addr)
+	//	//}
+	//} else {
+	//	// 从节点初始化
+	//	log.Printf("=== 从节点 %s 开始初始化，主节点地址：%s ===", addr, masterAddr)
+	//	// 将同步操作放到 goroutine 中，避免阻塞初始化过程
+	//	//go cl.syncFromMaster(masterAddr)
+	//}
 	//TODO:数据持久化，主从都可以
 	//go cl.persistDataLoop()
 	fmt.Printf("11=======%v\n", cl.ShardNodeInfo)
 
+	//TODO:重启分批加载本地log数据到内存
+	err := cl.RestartBatchLoadLog()
+	if err != nil {
+		fmt.Printf("RestartBatchLoadLog:%v\n", err)
+	}
+	//TODO:拉去主节点的增量数据，并写入内存
+	go cl.PullSyncLoop()
 	//TODO: 注册所有助手方法
 	cl.registerAllHandlers()
 	//TODO: 启动http服务器

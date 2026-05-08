@@ -11,7 +11,7 @@ import (
 // http:127.0.0.1:9090/metrics
 // TODO:后期每个节点端口一样，修改未唯一端口9090
 func StartMonitor(replicaID int) {
-	port := 9090 + replicaID - 1
+	port := 9080 + replicaID - 1
 	go func() {
 		http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 			dragonboat.WriteHealthMetrics(w)
