@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"mumu.com/redis-go/fileUpload/common"
 )
@@ -35,7 +36,15 @@ func main() {
 	}
 	// 注册处理函数，并监听端口
 	http.HandleFunc("/", handler)
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	srv := &http.Server{
+		Addr:           "8080",
+		ReadTimeout:    2 * time.Second,
+		WriteTimeout:   2 * time.Second,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 2048,
+	}
+	err := srv.ListenAndServe()
+	if err != nil {
 		fmt.Printf("服务启动失败：%v\n", err)
 	}
 }
