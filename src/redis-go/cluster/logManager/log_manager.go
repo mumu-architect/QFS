@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tidwall/wal"
+	"mumu.com/redis-go/cluster/dragonboatRaft"
 	"mumu.com/redis-go/cluster/fileManager"
 )
 
@@ -83,7 +84,7 @@ func NewNodeLog(shardId int, leaderId int, nodeId int, logIp string, logPort int
 	}
 	//TODO:开启8081
 	go nodeLog.RegisterLogHandlers()
-	go nodeLog.StartHTTPAPI()
+	go nodeLog.startLogHTTPServer()
 	return nodeLog, nil
 }
 
@@ -195,7 +196,7 @@ func (nl *NodeLog) LogIndexGenerator() (uint64, error) {
 }
 
 // StartHTTPAPI  启动HTTP服务
-func (nl *NodeLog) StartHTTPAPI() {
+func (nl *NodeLog) startLogHTTPServer() {
 	// 监听地址（与节点地址一致）
 	//TODO: listenAddr := c.LocalNode.Addr
 	//listenAddr := "1" + strings.Split(c.LocalNode.Addr, ":")[1]
@@ -285,4 +286,11 @@ func stringToMapNodes(shardID int, peers string) map[int]*Node {
 		shardNodeInfo[peerNodeID] = peerNodeInfo
 	}
 	return shardNodeInfo
+}
+func (nl *NodeLog) DynamicallyModifyLogNodeLeaderID(shardNodeLeaderID *dragonboatRaft.NodeShardLeaderMeta) {
+
+	if nl.ShardId == shardNodeLeaderID.ShardID {
+		nl.LeaderId = shardNodeLeaderID.LeaderID
+	}
+
 }

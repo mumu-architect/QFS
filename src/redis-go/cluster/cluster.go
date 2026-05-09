@@ -13,6 +13,7 @@ import (
 
 	"github.com/lni/dragonboat/v4"
 	"mumu.com/redis-go/cluster/dragonboatRaft"
+	"mumu.com/redis-go/cluster/fileManager"
 	"mumu.com/redis-go/cluster/logManager"
 )
 
@@ -54,6 +55,7 @@ type Cluster struct {
 	DragonBoatNodeHost *dragonboat.NodeHost
 	NodeMeta           *dragonboatRaft.NodeMeta
 	NodeLog            *logManager.NodeLog
+	NodeFile           *fileManager.NodeFile
 	ShardNodeInfo      map[int]*Node
 	AllNodeInfos       string
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
@@ -79,7 +81,7 @@ type Cluster struct {
 }
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, masterAddr string) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, nodeFile *fileManager.NodeFile) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
@@ -103,6 +105,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		DragonBoatNodeHost: nh,
 		NodeMeta:           nodeMeta,
 		NodeLog:            nodeLog,
+		NodeFile:           nodeFile,
 		//Nodes:     make(map[string]*Node),
 		//Nodes:         shardNodeInfo,
 		ShardNodeInfo: shardNodeInfo,
@@ -240,4 +243,13 @@ func (cl *Cluster) GetNodeIdToNodeArr(nodeId int) string {
 		}
 	}
 	return ""
+}
+
+// DynamicallyModifyClusterNodeLeaderID 动态修改leaderID
+func (cl *Cluster) DynamicallyModifyClusterNodeLeaderID(shardNodeLeaderID *dragonboatRaft.NodeShardLeaderMeta) {
+
+	if cl.ShardID == shardNodeLeaderID.ShardID {
+		cl.LeaderID = shardNodeLeaderID.LeaderID
+		cl.LocalNode.LeaderID = shardNodeLeaderID.LeaderID
+	}
 }
