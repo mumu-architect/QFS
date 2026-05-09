@@ -15,6 +15,7 @@ import (
 	"mumu.com/redis-go/cluster/dragonboatRaft"
 	"mumu.com/redis-go/cluster/fileManager"
 	"mumu.com/redis-go/cluster/logManager"
+	"mumu.com/redis-go/distributedId/snowflake"
 )
 
 // 常量定义
@@ -39,6 +40,7 @@ type Node struct {
 	NodeID   int        `json:"id"`   // 节点唯一ID
 	IP       string     `json:"ip"`   // 地址（IP）
 	Port     int        `json:"port"` // 地址（Port）
+	RpcPort  int        `json:"rpcPort"`
 	LeaderID int        `json:"leaderID"`
 	Addr     string     `json:"addr"`   // 地址（IP:Port）//TODO:使用的地方比较多
 	Status   NodeStatus `json:"status"` // 在线/离线
@@ -48,16 +50,17 @@ type Node struct {
 // Cluster 集群核心结构体
 type Cluster struct {
 	mu                 sync.RWMutex
-	ShardID            int
-	LeaderID           int
-	NodeAllSlotMetas   *dragonboatRaft.NodeSlotMetas
-	LocalNode          *Node // 本地节点
-	DragonBoatNodeHost *dragonboat.NodeHost
-	NodeMeta           *dragonboatRaft.NodeMeta
-	NodeLog            *logManager.NodeLog
-	NodeFile           *fileManager.NodeFile
-	ShardNodeInfo      map[int]*Node
-	AllNodeInfos       string
+	ShardID            int                           `json:"shardID"`
+	LeaderID           int                           `json:"leaderID"`
+	NodeAllSlotMetas   *dragonboatRaft.NodeSlotMetas `json:"nodeAllSlotMetas"`
+	LocalNode          *Node                         `json:"localNode"`
+	DragonBoatNodeHost *dragonboat.NodeHost          `json:"dragonBoatNodeHost"`
+	NodeMeta           *dragonboatRaft.NodeMeta      `json:"nodeMeta"`
+	NodeLog            *logManager.NodeLog           `json:"nodeLog"`
+	NodeFile           *fileManager.NodeFile         `json:"nodeFile"`
+	ShardNodeInfo      map[int]*Node                 `json:"shardNodeInfo"`
+	AllNodeInfos       string                        `json:"allNodeInfos"`
+	SnowflakeGenerate  *snowflake.SnowFlakeGenerate  `json:"snowflakeGenerate"`
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
 	//Nodes          map[int]*Node       // 集群所有节点（ID->Node）
 	//slotMap        map[int]string      // 哈希槽->主节点ID映射
@@ -81,17 +84,19 @@ type Cluster struct {
 }
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, nodeFile *fileManager.NodeFile) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcPort int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, nodeFile *fileManager.NodeFile) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
 	shardNodeInfo := stringToMapNodes(shardID, peers)
+	snowflakeGenerate := snowflake.NewSnowFlakeGenerate()
 	// 1. 创建当前集群的本地节点
 	localNode := &Node{
 		ShardID:  shardID,
 		NodeID:   nodeID,
 		IP:       ip,
 		Port:     port,
+		RpcPort:  rpcPort,
 		Addr:     addr,
 		LeaderID: leaderID,
 		Status:   Online,
@@ -108,8 +113,9 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 		NodeFile:           nodeFile,
 		//Nodes:     make(map[string]*Node),
 		//Nodes:         shardNodeInfo,
-		ShardNodeInfo: shardNodeInfo,
-		AllNodeInfos:  nodeInfo,
+		ShardNodeInfo:     shardNodeInfo,
+		AllNodeInfos:      nodeInfo,
+		SnowflakeGenerate: snowflakeGenerate,
 		//slotMap:       make(map[int]string),
 		// 初始化RedisData（替换原dataStore := make(map[string]string)）
 		dataStore:      nil,
@@ -158,6 +164,9 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, peer
 	go cl.PullSyncLoop()
 	//TODO: 注册所有助手方法
 	cl.registerAllHandlers()
+
+	//TODO:启动rpc服务，用于保从节点的雪花key,存到key槽对应的主节点
+	go cl.StartRPCServer()
 	//TODO: 启动http服务器
 	go cl.startHTTPAPI()
 	return cl

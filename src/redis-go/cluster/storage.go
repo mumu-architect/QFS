@@ -159,9 +159,6 @@ func (cl *Cluster) setHashData(key, field, val string) {
 	}
 	cl.dataStore.(RedisData).Hash[key][field] = val
 	cl.recentChanges[fmt.Sprintf("hash:%s:%s", key, field)] = time.Now() // 哈希变更标记
-
-	//
-
 }
 
 // // TODO:测试使用,最后删除

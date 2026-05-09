@@ -9,10 +9,12 @@ import (
 	"mumu.com/config"
 )
 
-var sf *Snowflake
+type SnowFlakeGenerate struct {
+	Snowflake *Snowflake
+}
 
-// 初始化雪花对象
-func InitIDgenerator() {
+// NewSnowFlakeGenerate 初始化雪花对象
+func NewSnowFlakeGenerate() *SnowFlakeGenerate {
 	// 1. 解析命令行参数
 	configPath := flag.String("config", "configs/redis-cluster.yaml", "Path to the configuration file")
 	flag.Parse()
@@ -26,17 +28,20 @@ func InitIDgenerator() {
 	epoch := time.Date(2025, 11, 1, 1, 1, 1, 1, time.UTC).Unix()
 	fmt.Printf("Failed to load or create configuration: %v|%v|%v \r\n", cfg.Server.CenterId, cfg.Server.WorkerId, epoch)
 	// 初始化雪花实例（数据中心ID=1，机器ID=3）
-	res, err := newSnowflake(cfg.Server.CenterId, cfg.Server.WorkerId, epoch)
+	sf, err := newSnowflake(cfg.Server.CenterId, cfg.Server.WorkerId, epoch)
 	if err != nil {
 		fmt.Printf("初始化失败：%v\n", err)
-		return
+		return nil
 	}
-	sf = res
+	sfg := &SnowFlakeGenerate{
+		Snowflake: sf,
+	}
+	return sfg
 }
 
 // GetFlowID 获取唯一流水ID
-func GetFlowID() int64 {
-	id, err := sf.NextID()
+func (sfg *SnowFlakeGenerate) GetFlowID() int64 {
+	id, err := sfg.Snowflake.NextID()
 	if err != nil {
 		fmt.Printf("生成ID失败：%v\n", err)
 		return 0

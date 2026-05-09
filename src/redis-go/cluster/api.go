@@ -15,7 +15,9 @@ import (
 // registerAllHandlers 注册所有HTTP接口（新增缩容接口）
 func (cl *Cluster) registerAllHandlers() {
 	cl.registerDataHandlers()
+	//TODO：可能要删除
 	cl.registerSyncHandlers()
+	cl.registerRpcHandlers()
 }
 
 // registerDataHandlers 注册数据操作接口（新增HGet/HSet）

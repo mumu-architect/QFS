@@ -27,8 +27,8 @@ type NodeFile struct {
 	FilePort      int           `json:"filePort"`
 	LeaderId      int           `json:"leaderId"`
 	ShardNodeInfo map[int]*Node `json:"shardNodeInfo"`
-	LeaderAddr    string
-	LocalRoot     string
+	LeaderAddr    string        `json:"leaderAddr"`
+	LocalRoot     string        `json:"localRoot"`
 	httpClient    *http.Client
 	mu            sync.RWMutex
 }
@@ -51,7 +51,7 @@ func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort 
 	}
 
 	shardNodeInfo := stringToMapNodes(shardId, filePeers)
-	localRoot := fmt.Sprintf(FileDataDir+"/data_%d", filePort)
+	localRoot := FileDataDir + fmt.Sprintf("/data_%d", filePort)
 	fm := &NodeFile{
 		ShardId:       shardId,
 		NodeId:        nodeId,

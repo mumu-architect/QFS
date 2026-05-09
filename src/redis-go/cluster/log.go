@@ -36,6 +36,8 @@ func (cl *Cluster) PullLeaderLogOnce() error {
 		if err != nil {
 			return err
 		}
+		//TODO:leader增量文件同步到本地
+		//比较耗时
 	}
 	if logMap.HasMore {
 		go func() {
