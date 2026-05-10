@@ -20,28 +20,28 @@ type PreUploadRequest struct{}
 
 // PreUploadResponse 返回给SDK
 type PreUploadResponse struct {
-	RouteKey   string `json:"route_key"`
-	LeaderAddr string `json:"leader_addr"`
+	RouteKey      string `json:"route_key"`
+	LeaderAddr    string `json:"leader_addr"`
+	LeaderRpcAddr string `json:"leaderRpcAddr"`
 }
 
 // 注册文件上传助手函数
 func (cl *Cluster) registerRpcHandlers() {
 	// 2. String - Get
 	cl.ServeMux.HandleFunc("/PreUpload", func(w http.ResponseWriter, r *http.Request) {
-		key := r.URL.Query().Get("key")
-		if key == "" {
-			http.Error(w, "key不能为空", http.StatusBadRequest)
-			return
-		}
+		//key := r.URL.Query().Get("key")
+		//if key == "" {
+		//	http.Error(w, "key不能为空", http.StatusBadRequest)
+		//	return
+		//}
 		//TODO:生成预请求routeKey,leaderAddr
 		preUploadResponse := cl.HandlePreUpload()
 		json.NewEncoder(w).Encode(preUploadResponse)
 	})
 	cl.ServeMux.HandleFunc("/Upload", func(w http.ResponseWriter, r *http.Request) {
 		// 1. 从url取参数
-		rootKey := r.URL.Query().Get("root_key")
-		fileName := r.URL.Query().Get("filename")
-
+		rootKey := r.URL.Query().Get("rootKey")
+		fileName := r.URL.Query().Get("fileName")
 		// 基础校验
 		if rootKey == "" || fileName == "" {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -50,13 +50,30 @@ func (cl *Cluster) registerRpcHandlers() {
 			})
 			return
 		}
+		// 2. 解析上传的文件（必须先执行这一步，才能拿到 handler）
+		file, handler, err := r.FormFile("file") // 前端上传的文件字段名：file
+		if err != nil {
+			http.Error(w, "获取文件失败", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		//// 3.  获取 Content-Type（两种方式，你任选）
+		//// 方式1：从请求头获取（前端传的）
+		contentType := handler.Header.Get("Content-Type")
+
+		// 方式2：获取【真实文件类型】，最准（推荐！）
+		//buf := make([]byte, 512)
+		//n, _ := file.Read(buf)
+		//file.Seek(0, io.SeekStart) // 重置文件指针
+		//realContentType := http.DetectContentType(buf[:n])
+
 		//TODO:上传文件
 		// 2. 核销一次性rootKey，失效直接拒绝
-		_, err, filePath, fileSize := cl.HandleUpload(rootKey, fileName, r)
+		_, err, filePath, fileSize := cl.HandleUpload(rootKey, fileName, contentType, r)
 		if err != nil {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"code": 400,
-				"msg":  err,
+				"msg":  err.Error(),
 			})
 			return
 		}
@@ -72,22 +89,27 @@ func (cl *Cluster) registerRpcHandlers() {
 }
 
 // HandleUpload 接收文件上传 + 核销route_key
-func (cl *Cluster) HandleUpload(routeKey string, fileName string, r *http.Request) (bool, error, string, int64) {
-	leaderId, _, _ := cl.GetLeaderHTTPAddr(routeKey)
+func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentType string, r *http.Request) (bool, error, string, int64) {
+	leaderId, _, _, _ := cl.GetLeaderHTTPAddr(routeKey)
 	// 只有Leader处理核销
+	fmt.Printf("leaderId:%d ===cl.LocalNode.NodeID:%d \n", leaderId, cl.LocalNode.NodeID)
 	if leaderId != cl.LocalNode.NodeID {
 		return false, errors.New("no leader"), "", 0
 	}
 	// 一次性核销：取到即删除
-	_, ok := keySyncMap.LoadAndDelete(routeKey)
+	fmt.Printf("=====接收routeKey：%s\n", routeKey)
+	_, ok := keySyncMap.LoadAndDelete(routeKey) // 成功才删除
+	fmt.Println("LoadAndDelete:", ok)
+
 	if !ok {
 		return false, errors.New("the routeKey does not exist"), "", 0
 	}
+
 	// 3. 定义文件存储路径
-	dir := fileManager.FileDataDir + fmt.Sprintf("/data_%d/file_%s/", cl.LocalNode.RpcPort, time.Now().Format("20060102"))
+	dir := fileManager.FileDataDir + fmt.Sprintf("/data_%d/file_%s/", cl.LocalNode.Port, time.Now().Format("20060102"))
 	savePath := dir + fileName
 	// 确保目录存在
-	_ = os.MkdirAll("./upload", 0755)
+	_ = os.MkdirAll(dir, 0755)
 	// 4. 创建目标文件
 	dstFile, err := os.Create(savePath)
 	if err != nil {
@@ -96,20 +118,37 @@ func (cl *Cluster) HandleUpload(routeKey string, fileName string, r *http.Reques
 	defer dstFile.Close() // 必须延迟关闭
 
 	// 5. 核心：io.Copy 流式拷贝  r.Body -> 磁盘文件
-	written, err := io.Copy(dstFile, r.Body)
+	_, err = io.Copy(dstFile, r.Body)
 	if err != nil {
 		return false, errors.New("file write failed"), "", 0
 	}
-
-	return true, nil, savePath, written
+	//TODO:上传文件信息写入内存，并持久化到本地
+	fileSize := r.ContentLength
+	routeKeyInt, err := strconv.ParseInt(routeKey, 10, 64)
+	fileInfo := &fileManager.FileInfo{
+		FIleID:     routeKeyInt,
+		FileName:   fileName,
+		FilePath:   savePath,
+		FileSize:   fileSize,
+		MineType:   realContentType,
+		CreateTime: time.Now().UnixMilli(),
+		UpdateTime: time.Now().UnixMilli(),
+		IsDeleted:  false,
+	}
+	fileInfoStr, _ := json.Marshal(fileInfo)
+	key := fileManager.GenerateFileCacheKey(routeKeyInt)
+	fmt.Printf("fileManager.FileInfo : %s\n", string(fileInfoStr))
+	go cl.SetToLog(key, string(fileInfoStr))
+	return true, nil, savePath, fileSize
 }
 
 // HandlePreUpload HTTP预上传处理函数
 func (cl *Cluster) HandlePreUpload() PreUploadResponse {
 	// 1. 任意节点本地生成雪花key
 	routeKey := cl.GenSnowflakeKey()
-	leaderId, leaderIp, _ := cl.GetLeaderHTTPAddr(routeKey)
-	leaderRpcAddr := fmt.Sprintf("%s:%d", leaderIp, cl.LocalNode.RpcPort)
+	leaderId, leaderIp, leaderPort, rpcLeaderPort := cl.GetLeaderHTTPAddr(routeKey)
+	leaderRpcAddr := fmt.Sprintf("%s:%d", leaderIp, rpcLeaderPort)
+	leaderAddr := fmt.Sprintf("%s:%d", leaderIp, leaderPort)
 	// 2. 判断自身是不是Leader
 	if leaderId == cl.LocalNode.NodeID {
 		// 自己是主：直接本地存入map
@@ -121,14 +160,20 @@ func (cl *Cluster) HandlePreUpload() PreUploadResponse {
 			defer rpcClient.Close()
 			args := &PutKeyArgs{RouteKey: routeKey}
 			var reply EmptyReply
-			_ = rpcClient.Call("KeyRPCService.PutKey", args, &reply)
+			callErr := rpcClient.Call("KeyRPCService.PutKey", args, &reply)
+			if callErr != nil {
+				fmt.Printf("RPC调用失败：%v\n", callErr)
+			} else {
+				fmt.Printf("RPC调用成功，写入routeKey：%s\n", routeKey)
+			}
 		}
 	}
 
 	// 3. 直接返回 key + 真实Leader地址
 	return PreUploadResponse{
-		RouteKey:   routeKey,
-		LeaderAddr: leaderRpcAddr,
+		RouteKey:      routeKey,
+		LeaderAddr:    leaderAddr,
+		LeaderRpcAddr: leaderRpcAddr,
 	}
 }
 
@@ -140,10 +185,11 @@ func (cl *Cluster) GenSnowflakeKey() string {
 }
 
 // 获取集群真正的Leader RPC地址 & HTTP地址
-func (cl *Cluster) GetLeaderHTTPAddr(key string) (int, string, int) {
+func (cl *Cluster) GetLeaderHTTPAddr(key string) (int, string, int, int) {
 	leaderId := cl.keyToleaderID(key)
 	leaderIp, leaderPort, _ := cl.LeaderIdToLeaderAddr(leaderId)
-	return leaderId, leaderIp, leaderPort
+	_, rpcLeaderPort, _ := cl.LeaderIdToRpcLeaderAddr(leaderId)
+	return leaderId, leaderIp, leaderPort, rpcLeaderPort
 }
 
 func (cl *Cluster) GetLeaderRPCAddr() string {
@@ -156,6 +202,30 @@ func (cl *Cluster) keyToleaderID(key string) int {
 	slot := cl.calcSlot(key)
 	leaderId := cl.GetSlotToLeaderID(slot)
 	return leaderId
+}
+
+// LeaderIdToRpcLeaderAddr 获取rpcleaderAddr
+func (cl *Cluster) LeaderIdToRpcLeaderAddr(nodeId int) (string, int, error) {
+	peerList := strings.Split(cl.RpcNodeInfo, ",")
+	for _, peer := range peerList {
+		parts := strings.Split(peer, "=")
+		if len(parts) != 2 {
+			continue
+		}
+		peerNodeID, _ := strconv.Atoi(parts[0])
+		nodeAddr := parts[1]
+		parts2 := strings.Split(nodeAddr, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		peerNodeIP := parts2[0]
+		peerNodePort, _ := strconv.Atoi(parts2[1])
+		//addr := fmt.Sprintf("%s:%d", peerNodeIP, peerNodePort)
+		if nodeId == peerNodeID {
+			return peerNodeIP, peerNodePort, nil
+		}
+	}
+	return "", 0, errors.New("no leader found")
 }
 
 // LeaderIdToLeaderAddr 字符串转map的node节点

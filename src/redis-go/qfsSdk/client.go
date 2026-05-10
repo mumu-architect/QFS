@@ -46,6 +46,7 @@ func getAliveEntry() string {
 func preUpload() (*PreUploadResp, error) {
 	entry := getAliveEntry()
 	url := fmt.Sprintf("http://%s/PreUpload", entry)
+	fmt.Printf("=====url:%s\n", url)
 
 	resp, err := httpCli.Post(url, "application/json", bytes.NewBuffer([]byte("{}")))
 	if err != nil {
@@ -61,8 +62,8 @@ func preUpload() (*PreUploadResp, error) {
 }
 
 // 第二步：直传Leader上传文件
-func uploadFile(leaderAddr, routeKey string, file io.Reader, fileName string) ([]byte, error) {
-	url := fmt.Sprintf("http://%s/Upload", leaderAddr)
+func uploadFile(file io.Reader, leaderAddr, routeKey string, fileName string) ([]byte, error) {
+	url := fmt.Sprintf("http://%s/Upload?rootKey=%s&fileName=%s", leaderAddr, routeKey, fileName)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -88,9 +89,10 @@ func uploadFile(leaderAddr, routeKey string, file io.Reader, fileName string) ([
 func Upload(file io.Reader, fileName string) ([]byte, error) {
 	// 1. 预请求拿 key + leader地址
 	preInfo, err := preUpload()
+	fmt.Printf("preUpload:%v \n", preInfo)
 	if err != nil {
 		return nil, err
 	}
 	// 2. 直传Leader
-	return uploadFile(preInfo.LeaderAddr, preInfo.RouteKey, file, fileName)
+	return uploadFile(file, preInfo.LeaderAddr, preInfo.RouteKey, fileName)
 }

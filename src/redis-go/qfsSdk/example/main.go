@@ -19,14 +19,14 @@ func main() {
 	})
 
 	// 2. 读取测试文件
-	file, err := os.Open("./test.jpg")
+	file, err := os.Open("./11.jpeg")
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
 	// 3. 直接调用SDK上传
-	resp, err := qfsSdk.Upload(file, "test.jpg")
+	resp, err := qfsSdk.Upload(file, "11.jpeg")
 	if err != nil {
 		panic(err)
 	}

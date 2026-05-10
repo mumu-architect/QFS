@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -19,6 +20,7 @@ type EmptyReply struct{}
 
 // 存入Key：给从节点远程调用
 func (k *KeyRPCService) PutKey(args *PutKeyArgs, reply *EmptyReply) error {
+	fmt.Printf("【Leader 已收到】写入 routeKey：%s\n", args.RouteKey)
 	keySyncMap.Store(args.RouteKey, true)
 	return nil
 }

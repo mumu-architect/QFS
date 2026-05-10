@@ -60,6 +60,7 @@ type Cluster struct {
 	NodeFile           *fileManager.NodeFile         `json:"nodeFile"`
 	ShardNodeInfo      map[int]*Node                 `json:"shardNodeInfo"`
 	AllNodeInfos       string                        `json:"allNodeInfos"`
+	RpcNodeInfo        string                        `json:"rpcNodeInfo"`
 	SnowflakeGenerate  *snowflake.SnowFlakeGenerate  `json:"snowflakeGenerate"`
 	//Nodes          map[string]*Node    // 集群所有节点（ID->Node）
 	//Nodes          map[int]*Node       // 集群所有节点（ID->Node）
@@ -84,7 +85,7 @@ type Cluster struct {
 }
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcPort int, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, nodeFile *fileManager.NodeFile) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcPort int, rpcNodeInfo string, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, nodeFile *fileManager.NodeFile) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
@@ -115,6 +116,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcP
 		//Nodes:         shardNodeInfo,
 		ShardNodeInfo:     shardNodeInfo,
 		AllNodeInfos:      nodeInfo,
+		RpcNodeInfo:       rpcNodeInfo,
 		SnowflakeGenerate: snowflakeGenerate,
 		//slotMap:       make(map[int]string),
 		// 初始化RedisData（替换原dataStore := make(map[string]string)）
