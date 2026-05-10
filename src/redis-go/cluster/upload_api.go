@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/rpc"
 	"os"
@@ -51,7 +52,7 @@ func (cl *Cluster) registerRpcHandlers() {
 			return
 		}
 		// 2. 解析上传的文件（必须先执行这一步，才能拿到 handler）
-		file, handler, err := r.FormFile("file") // 前端上传的文件字段名：file
+		file, _, err := r.FormFile("file") // 前端上传的文件字段名：file
 		if err != nil {
 			http.Error(w, "获取文件失败", http.StatusBadRequest)
 			return
@@ -59,17 +60,17 @@ func (cl *Cluster) registerRpcHandlers() {
 		defer file.Close()
 		//// 3.  获取 Content-Type（两种方式，你任选）
 		//// 方式1：从请求头获取（前端传的）
-		contentType := handler.Header.Get("Content-Type")
+		//contentType := handler.Header.Get("Content-Type")
 
 		// 方式2：获取【真实文件类型】，最准（推荐！）
-		//buf := make([]byte, 512)
-		//n, _ := file.Read(buf)
-		//file.Seek(0, io.SeekStart) // 重置文件指针
-		//realContentType := http.DetectContentType(buf[:n])
+		buf := make([]byte, 512)
+		n, _ := file.Read(buf)
+		file.Seek(0, io.SeekStart) // 重置文件指针
+		realContentType := http.DetectContentType(buf[:n])
 
 		//TODO:上传文件
 		// 2. 核销一次性rootKey，失效直接拒绝
-		_, err, filePath, fileSize := cl.HandleUpload(rootKey, fileName, contentType, r)
+		_, err, filePath, fileSize := cl.HandleUpload(rootKey, fileName, realContentType, file)
 		if err != nil {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"code": 400,
@@ -89,7 +90,7 @@ func (cl *Cluster) registerRpcHandlers() {
 }
 
 // HandleUpload 接收文件上传 + 核销route_key
-func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentType string, r *http.Request) (bool, error, string, int64) {
+func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentType string, file multipart.File) (bool, error, string, int64) {
 	leaderId, _, _, _ := cl.GetLeaderHTTPAddr(routeKey)
 	// 只有Leader处理核销
 	fmt.Printf("leaderId:%d ===cl.LocalNode.NodeID:%d \n", leaderId, cl.LocalNode.NodeID)
@@ -118,12 +119,12 @@ func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentTyp
 	defer dstFile.Close() // 必须延迟关闭
 
 	// 5. 核心：io.Copy 流式拷贝  r.Body -> 磁盘文件
-	_, err = io.Copy(dstFile, r.Body)
+	fileSize, err := io.Copy(dstFile, file)
 	if err != nil {
 		return false, errors.New("file write failed"), "", 0
 	}
 	//TODO:上传文件信息写入内存，并持久化到本地
-	fileSize := r.ContentLength
+	//fileSize := r.ContentLength
 	routeKeyInt, err := strconv.ParseInt(routeKey, 10, 64)
 	fileInfo := &fileManager.FileInfo{
 		FIleID:     routeKeyInt,
