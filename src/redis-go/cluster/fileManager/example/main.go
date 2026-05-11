@@ -38,7 +38,7 @@ func testSingleSync() {
 	//task := &fileManager.SyncTask{
 	//	TaskID:     "t1",
 	//	SourceURL:  "file://" + src,
-	//	TargetPath: "./slave_data/test.jpg",
+	//	LocalPath: "./slave_data/test.jpg",
 	//	FileSize:   int64(len(content)),
 	//}
 	// 2.计算MD5
@@ -46,11 +46,11 @@ func testSingleSync() {
 
 	// 3.组装任务，带上MD5
 	task := &fileManager.SyncTask{
-		TaskID:     "t1",
-		SourceURL:  "file://" + src,
-		TargetPath: "./slave_data/test.jpg",
-		FileSize:   int64(len(content)),
-		FileMD5:    fileMD5, // 传给从机
+		TaskID:    "t1",
+		SourceURL: "file://" + src,
+		LocalPath: "./slave_data/test.jpg",
+		FileSize:  int64(len(content)),
+		FileMD5:   fileMD5, // 传给从机
 	}
 
 	// 推送到从机
@@ -60,7 +60,7 @@ func testSingleSync() {
 	time.Sleep(3 * time.Second)
 
 	// 检查结果
-	if _, err := os.Stat(task.TargetPath); err == nil {
+	if _, err := os.Stat(task.LocalPath); err == nil {
 		fmt.Println("✅ 同步成功")
 	} else {
 		fmt.Println("❌ 同步失败，原因：", err)
@@ -83,16 +83,16 @@ func testMultiSync() {
 		//task := &fileManager.SyncTask{
 		//	TaskID:     fmt.Sprintf("t%d", i),
 		//	SourceURL:  "file://" + src,
-		//	TargetPath: fmt.Sprintf("./slave_data/f%d.txt", i),
+		//	LocalPath: fmt.Sprintf("./slave_data/f%d.txt", i),
 		//	FileSize:   int64(len(content)),
 		//}
 		fileMD5, _ := fileManager.GetFileMD5(src)
 		task := &fileManager.SyncTask{
-			TaskID:     fmt.Sprintf("t%d", i),
-			SourceURL:  "file://" + src,
-			TargetPath: fmt.Sprintf("./slave_data/f%d.txt", i),
-			FileSize:   int64(len(content)),
-			FileMD5:    fileMD5, // 传给从机
+			TaskID:    fmt.Sprintf("t%d", i),
+			SourceURL: "file://" + src,
+			LocalPath: fmt.Sprintf("./slave_data/f%d.txt", i),
+			FileSize:  int64(len(content)),
+			FileMD5:   fileMD5, // 传给从机
 		}
 
 		fileManager.LeaderPushSyncToSlaves([]string{"127.0.0.1:8081"}, task)

@@ -89,6 +89,39 @@ func (cl *Cluster) registerRpcHandlers() {
 	})
 }
 
+// TODO:发送rpc文件下载任务到从机
+func (cl *Cluster) sendTaskToSlave(sourceURL string, fileName string, routeKey string) {
+	for _, nodeInfo := range cl.ShardRpcNodeInfo {
+		if nodeInfo.NodeID == cl.LeaderID {
+			continue
+		}
+		slaveRpcAddr := fmt.Sprintf("%s:%d", nodeInfo.IP, nodeInfo.Port)
+
+		slavePort := cl.NodeFile.ShardNodeInfo[nodeInfo.NodeID].Port
+		slaveDir := fileManager.FileDataDir + fmt.Sprintf("/data_%d/file_%s/", slavePort, time.Now().Format("20060102"))
+		slavePath := slaveDir + fileName
+		leaderNodeFileAddr := fmt.Sprintf("http://%s:%d", cl.NodeFile.ShardNodeInfo[cl.LeaderID].IP, cl.NodeFile.ShardNodeInfo[cl.LeaderID].Port)
+		rpcClient, err := rpc.Dial("tcp", slaveRpcAddr)
+		fmt.Printf("==slaveRpcAddr:%s\n", slaveRpcAddr)
+		if err == nil {
+			defer rpcClient.Close()
+			task := &fileManager.SyncTask{
+				TaskID:    fmt.Sprintf("task_%s", routeKey),
+				LeaderURL: leaderNodeFileAddr,
+				SourceURL: sourceURL,
+				LocalPath: slavePath,
+			}
+			var reply fileManager.EmptyReply
+			callErr := rpcClient.Call("SyncRPCService.ReceiveSyncTask", task, &reply)
+			if callErr != nil {
+				fmt.Printf("RPC调用失败：%v\n", callErr)
+			} else {
+				fmt.Printf("RPC调用成功，写入routeKey：%s\n", routeKey)
+			}
+		}
+	}
+}
+
 // HandleUpload 接收文件上传 + 核销route_key
 func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentType string, file multipart.File) (bool, error, string, int64) {
 	leaderId, _, _, _ := cl.GetLeaderHTTPAddr(routeKey)
@@ -107,7 +140,7 @@ func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentTyp
 	}
 
 	// 3. 定义文件存储路径
-	dir := fileManager.FileDataDir + fmt.Sprintf("/data_%d/file_%s/", cl.LocalNode.Port, time.Now().Format("20060102"))
+	dir := fileManager.FileDataDir + fmt.Sprintf("/data_%d/file_%s/", cl.NodeFile.FilePort, time.Now().Format("20060102"))
 	savePath := dir + fileName
 	// 确保目录存在
 	_ = os.MkdirAll(dir, 0755)
@@ -117,6 +150,8 @@ func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentTyp
 		return false, errors.New("failed to create file"), "", 0
 	}
 	defer dstFile.Close() // 必须延迟关闭
+	//TODO:发送rpc通知到当前shard的所有从机,rpc地址
+	go cl.sendTaskToSlave(savePath, fileName, routeKey)
 
 	// 5. 核心：io.Copy 流式拷贝  r.Body -> 磁盘文件
 	fileSize, err := io.Copy(dstFile, file)
@@ -155,6 +190,7 @@ func (cl *Cluster) HandlePreUpload() PreUploadResponse {
 		// 自己是主：直接本地存入map
 		keySyncMap.Store(routeKey, true)
 	} else {
+		fmt.Printf("leaderRpcAddr:%s", leaderRpcAddr)
 		// 从节点：RPC远程调用Leader存key
 		rpcClient, err := rpc.Dial("tcp", leaderRpcAddr)
 		if err == nil {

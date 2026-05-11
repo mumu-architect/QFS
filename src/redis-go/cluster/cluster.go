@@ -59,6 +59,7 @@ type Cluster struct {
 	NodeLog            *logManager.NodeLog           `json:"nodeLog"`
 	NodeFile           *fileManager.NodeFile         `json:"nodeFile"`
 	ShardNodeInfo      map[int]*Node                 `json:"shardNodeInfo"`
+	ShardRpcNodeInfo   map[int]*Node                 `json:"shardRpcNodeInfo"`
 	AllNodeInfos       string                        `json:"allNodeInfos"`
 	RpcNodeInfo        string                        `json:"rpcNodeInfo"`
 	SnowflakeGenerate  *snowflake.SnowFlakeGenerate  `json:"snowflakeGenerate"`
@@ -85,11 +86,12 @@ type Cluster struct {
 }
 
 // NewCluster 创建集群节点
-func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcPort int, rpcNodeInfo string, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, nodeFile *fileManager.NodeFile) *Cluster {
+func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcPort int, rpcPeers string, rpcNodeInfo string, peers string, nodeInfo string, nodeSlotMetas *dragonboatRaft.NodeSlotMetas, nh *dragonboat.NodeHost, nodeMeta *dragonboatRaft.NodeMeta, nodeLog *logManager.NodeLog, nodeFile *fileManager.NodeFile) *Cluster {
 	ctx, cancel := context.WithCancel(context.Background())
 	addr := fmt.Sprintf(":%d", port)
 	dataFile := getDataFilePath(nodeID, addr)
 	shardNodeInfo := stringToMapNodes(shardID, peers)
+	shardRpcNodeInfo := stringToMapNodes(shardID, rpcPeers)
 	snowflakeGenerate := snowflake.NewSnowFlakeGenerate()
 	// 1. 创建当前集群的本地节点
 	localNode := &Node{
@@ -115,6 +117,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcP
 		//Nodes:     make(map[string]*Node),
 		//Nodes:         shardNodeInfo,
 		ShardNodeInfo:     shardNodeInfo,
+		ShardRpcNodeInfo:  shardRpcNodeInfo,
 		AllNodeInfos:      nodeInfo,
 		RpcNodeInfo:       rpcNodeInfo,
 		SnowflakeGenerate: snowflakeGenerate,

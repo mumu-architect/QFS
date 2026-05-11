@@ -66,7 +66,9 @@ func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort 
 	// 初始化地址+目录
 	fm.ChangeMasterAddr(leaderId)
 	//TODO:启动文件同步Http服务
-	go fm.startFileHttpServer()
+	//go fm.startFileHttpServer()
+	//TODO:从机收到主机的rpc任务，实时拉去主机的文件
+	go fm.StartFilePullServer()
 	return fm
 }
 
