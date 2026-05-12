@@ -19,23 +19,25 @@ import (
 )
 
 type Node struct {
-	ShardID      int
-	NodeID       int
-	ShardIDS     string
-	IP           string
-	Port         int
-	Peers        string // shard下所有cluster集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
-	NodeInfo     string //所有集群节点a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
-	RaftPort     int
-	RaftPeers    string // shard下所有raft集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
-	RaftNodeInfo string //所有集群节点a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
-	LogPort      int
-	LogPeers     string // shard下所有log集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
-	FIlePort     int
-	FilePeers    string
-	RpcPort      int
-	RpcPeers     string
-	RpcNodeInfo  string
+	ShardID            int
+	NodeID             int
+	ShardIDS           string
+	IP                 string
+	Port               int
+	Peers              string // shard下所有cluster集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	NodeInfo           string //所有集群节点a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	RaftPort           int
+	RaftPeers          string // shard下所有raft集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	RaftNodeInfo       string //所有集群节点a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	LogPort            int
+	LogPeers           string // shard下所有log集群节点 a1=127.0.0.1:9001,a2=127.0.0.1:9002,a3=127.0.0.1:9003
+	FilePort           int
+	FilePeers          string
+	IncrementFilePort  int
+	IncrementFilePeers string
+	RpcPort            int
+	RpcPeers           string
+	RpcNodeInfo        string
 }
 type RequestType uint64
 
@@ -93,16 +95,18 @@ func main() {
 	flag.IntVar(&node.LogPort, "logPort", 0, "端口 8081/8082/8083")
 	flag.StringVar(&node.LogPeers, "logPeers", "", "集群所有节点 1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083")
 
-	flag.IntVar(&node.FIlePort, "filePort", 0, "端口 7071/7072/7073")
+	flag.IntVar(&node.FilePort, "filePort", 0, "端口 7071/7072/7073")
 	flag.StringVar(&node.FilePeers, "filePeers", "", "集群所有节点 1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083")
+	flag.IntVar(&node.IncrementFilePort, "incrementFilePort", 0, "端口 5051/5052/5053")
+	flag.StringVar(&node.IncrementFilePeers, "incrementFilePeers", "", "集群所有节点 1=127.0.0.1:5051,2=127.0.0.1:5052,3=127.0.0.1:5053")
 
 	flag.IntVar(&node.RpcPort, "rpcPort", 0, "端口 6061/6062/6063")
 	flag.StringVar(&node.RpcPeers, "rpcPeers", "", "集群所有节点 1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063")
 	flag.StringVar(&node.RpcNodeInfo, "rpcNodeInfo", "", "集群所有节点 1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063")
 
 	flag.Parse()
-	if node.ShardID == 0 || node.NodeID == 0 || node.ShardIDS == "" || node.IP == "" || node.Port == 0 || node.RpcPort == 0 || node.RpcPeers == "" || node.RpcNodeInfo == "" || node.Peers == "" || node.NodeInfo == "" || node.RaftPort == 0 || node.RaftPeers == "" || node.RaftNodeInfo == "" || node.LogPort == 0 || node.LogPeers == "" || node.FIlePort == 0 || node.FilePeers == "" {
-		log.Fatal("必须输入--ShardID --NodeID --ShardIDS  --ip --port --RpcPort --RpcPeers --RpcNodeInfo --peers  --NodeInfo --RaftPort  --RaftPeers --raftNodeInfo --LogPort --LogPeers  --FilePort --FilePeers")
+	if node.ShardID == 0 || node.NodeID == 0 || node.ShardIDS == "" || node.IP == "" || node.Port == 0 || node.RpcPort == 0 || node.RpcPeers == "" || node.RpcNodeInfo == "" || node.Peers == "" || node.NodeInfo == "" || node.RaftPort == 0 || node.RaftPeers == "" || node.RaftNodeInfo == "" || node.LogPort == 0 || node.LogPeers == "" || node.FilePort == 0 || node.FilePeers == "" || node.IncrementFilePort == 0 || node.IncrementFilePeers == "" {
+		log.Fatal("必须输入--ShardID --NodeID --ShardIDS  --ip --port --RpcPort --RpcPeers --RpcNodeInfo --peers  --NodeInfo --RaftPort  --RaftPeers --raftNodeInfo --LogPort --LogPeers  --FilePort --FilePeers --IncrementFileFort --IncrementFilePeers")
 	}
 
 	nh := dragonboatRaft.NewDragonBoatRaftNode(node.ShardID, node.NodeID, node.RaftPeers, node.RaftNodeInfo)
@@ -151,7 +155,7 @@ func main() {
 		//TODO:本地log管理
 		nl, _ := logManager.NewNodeLog(node.ShardID, leaderId, node.NodeID, node.IP, node.LogPort, node.LogPeers)
 		//TODO:本地文件管理
-		nf := fileManager.NewNodeFile(node.ShardID, leaderId, node.NodeID, node.IP, node.FIlePort, node.FilePeers)
+		nf := fileManager.NewNodeFile(node.ShardID, leaderId, node.NodeID, node.IP, node.FilePort, node.FilePeers, node.IncrementFilePort, node.IncrementFilePeers)
 		//TODO:集群管理
 		cl := cluster.NewCluster(node.ShardID, leaderId, node.NodeID, node.IP, node.Port, node.RpcPort, node.RpcPeers, node.RpcNodeInfo, node.Peers, node.NodeInfo, nodeSlotMetas, nh, nodeMeta, nl, nf)
 

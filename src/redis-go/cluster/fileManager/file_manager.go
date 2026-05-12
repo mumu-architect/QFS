@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"mumu.com/redis-go/cluster/dragonboatRaft"
 )
 
 type Node struct {
@@ -19,24 +21,26 @@ type Node struct {
 	Port    int    `json:"port"` // 地址（Port）
 }
 
-// FileManager 文件管理器
+// NodeFile 文件管理器
 type NodeFile struct {
-	ShardId       int           `json:"shardId"`
-	NodeId        int           `json:"nodeId"`
-	FileIp        string        `json:"fileIp"`
-	FilePort      int           `json:"filePort"`
-	LeaderId      int           `json:"leaderId"`
-	ShardNodeInfo map[int]*Node `json:"shardNodeInfo"`
-	LeaderAddr    string        `json:"leaderAddr"`
-	LocalRoot     string        `json:"localRoot"`
-	httpClient    *http.Client
-	mu            sync.RWMutex
+	ShardId                int           `json:"shardId"`
+	NodeId                 int           `json:"nodeId"`
+	FileIp                 string        `json:"fileIp"`
+	FilePort               int           `json:"filePort"`
+	IncrementFilePort      int           `json:"incrementFilePort"`
+	LeaderId               int           `json:"leaderId"`
+	ShardNodeInfo          map[int]*Node `json:"shardNodeInfo"`
+	ShardIncrementNodeInfo map[int]*Node `json:"shardIncrementNodeInfo"`
+	LeaderAddr             string        `json:"leaderAddr"`
+	LocalRoot              string        `json:"localRoot"`
+	httpClient             *http.Client
+	mu                     sync.RWMutex
 }
 
 const FileDataDir = "./file_data"
 
-// NewFileManager New 创建文件管理器
-func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort int, filePeers string) *NodeFile {
+// NewNodeFile  New 创建文件管理器
+func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort int, filePeers string, incrementFilePort int, incrementFilePeers string) *NodeFile {
 	// 拼接目录 log_yyyyMMdd
 	// 传入 leaderAddr 格式 ip:port，自动解析端口、自动生成 ./data-端口 本地目录
 	//dir := fmt.Sprintf(FileDataDir+"/file_%d/log_%s", filePort, time.Now().Format("20060102"))
@@ -51,17 +55,21 @@ func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort 
 	}
 
 	shardNodeInfo := stringToMapNodes(shardId, filePeers)
+	shardIncrementNodeInfo := stringToMapNodes(shardId, incrementFilePeers)
+
 	localRoot := FileDataDir + fmt.Sprintf("/data_%d", filePort)
 	fm := &NodeFile{
-		ShardId:       shardId,
-		NodeId:        nodeId,
-		FileIp:        fileIp,
-		FilePort:      filePort,
-		LeaderId:      leaderId,
-		LeaderAddr:    "",
-		ShardNodeInfo: shardNodeInfo,
-		LocalRoot:     localRoot,
-		httpClient:    client,
+		ShardId:                shardId,
+		NodeId:                 nodeId,
+		FileIp:                 fileIp,
+		FilePort:               filePort,
+		IncrementFilePort:      incrementFilePort,
+		LeaderId:               leaderId,
+		LeaderAddr:             "",
+		ShardNodeInfo:          shardNodeInfo,
+		ShardIncrementNodeInfo: shardIncrementNodeInfo,
+		LocalRoot:              localRoot,
+		httpClient:             client,
 	}
 	// 初始化地址+目录
 	fm.ChangeMasterAddr(leaderId)
@@ -172,4 +180,11 @@ func stringToMapNodes(shardID int, peers string) map[int]*Node {
 		shardNodeInfo[peerNodeID] = peerNodeInfo
 	}
 	return shardNodeInfo
+}
+
+// DynamicallyModifyFileNodeLeaderID TODO:DynamicallyModifyFileNodeLeaderID 动态修改文件服务节点leaderID
+func (nf *NodeFile) DynamicallyModifyFileNodeLeaderID(shardNodeLeaderID *dragonboatRaft.NodeShardLeaderMeta) {
+	if nf.ShardId == shardNodeLeaderID.ShardID {
+		nf.LeaderId = shardNodeLeaderID.LeaderID
+	}
 }

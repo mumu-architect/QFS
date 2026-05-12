@@ -1,7 +1,5 @@
 package fileManager
 
-import "time"
-
 // SyncTask 文件同步任务体
 type SyncTask struct {
 	TaskID    string // 唯一任务ID
@@ -15,8 +13,4 @@ type SyncTask struct {
 const (
 	DefaultWorkerNum = 6
 	DefaultQueueCap  = 300
-
-	// 重试配置
-	MaxRetryCount = 3 // 最大重试3次
-	RetryInterval = 1 * time.Second
 )
