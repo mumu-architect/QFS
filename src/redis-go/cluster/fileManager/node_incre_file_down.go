@@ -14,16 +14,26 @@ import (
 
 // DoRemoteIncrementHttpFileSync TODO：实时同步远程http文件
 func (nf *NodeFile) DoRemoteIncrementHttpFileSync(task *IncrementSyncTask) {
+	fmt.Printf("DoRemoteIncrementHttpFileSync:%v\n", task)
 	leaderIp, leaderPort := nf.GetIncrementCurrentLeader()
 	leaderURL := fmt.Sprintf("http://%s:%d", leaderIp, leaderPort)
+	//TODO:当天要结束时，数据不同文件夹
 	slaveDir := FileDataDir + fmt.Sprintf("/data_%d/file_%s/", nf.FilePort, time.Now().Format("20060102"))
 	slavePath := slaveDir + task.FileName
 	fsc := &FileSyncClient{
 		LeaderURL:  leaderURL,
 		RemoteFile: task.FilePath,
 		LocalFile:  slavePath,
+		FileSize:   task.FileSize,
 	}
-	nf.StartIncrementSync(fsc)
+	fmt.Printf("StartIncrementSync4:%v ====%v \n", leaderIp, task.FileSize)
+	res := nf.StartIncrementSync(fsc)
+	fmt.Printf("StartIncrementSync5:%v\n", res)
+	// 标记完成
+	//if res {
+	fmt.Printf("StartIncrementSync6:%v\n", res)
+	_ = nf.IncrementFileManager.AppendFinish(task.TaskID)
+	//}
 	return
 }
 
@@ -41,10 +51,11 @@ func (nf *NodeFile) GetIncrementCurrentLeader() (string, int) {
 	// 这里替换成你实际读取Dragonboat暴露的Leader函数
 	leaderIp := nf.ShardIncrementNodeInfo[nf.LeaderId].IP
 	leaderPort := nf.ShardIncrementNodeInfo[nf.LeaderId].Port
+	fmt.Printf("StartIncrementSync1:%v ====%v====%v \n", nf.LeaderId, leaderIp, leaderPort)
 	return leaderIp, leaderPort
 }
 
-func (nf *NodeFile) StartIncrementSync(c *FileSyncClient) {
+func (nf *NodeFile) StartIncrementSync(c *FileSyncClient) bool {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		DialContext: (&net.Dialer{
@@ -65,10 +76,14 @@ func (nf *NodeFile) StartIncrementSync(c *FileSyncClient) {
 
 	for {
 		offset := nf.getIncrementLocalOffset(c)
+		fmt.Printf("getIncrementLocalOffset-offset:%d===%d \n", offset, c.FileSize)
+		if offset >= c.FileSize {
+			return true
+		}
 		// 先用当前缓存的MasterURL请求
 		reqURL := fmt.Sprintf("%s/SlavePullFile?file=%s&offset=%d", c.LeaderURL, c.RemoteFile, offset)
 
-		log.Printf("使用旧地址同步,LeaderURL:%s, file=%s ,retry:%d, offset:%d", c.LeaderURL, c.RemoteFile, c.retryTimes, offset)
+		log.Printf("使用旧地址同步StartIncrementSync,LeaderURL:%s, file=%s ,retry:%d, offset:%d", c.LeaderURL, c.RemoteFile, c.retryTimes, offset)
 
 		resp, err := client.Get(reqURL)
 		if err != nil {
@@ -95,7 +110,7 @@ func (nf *NodeFile) StartIncrementSync(c *FileSyncClient) {
 		err1 := os.MkdirAll(filepath.Dir(c.LocalFile), 0755)
 		if err1 != nil {
 			fmt.Printf("文件目录创建失败：%s \n", err1)
-			return
+			return false
 		}
 		fmt.Printf("OpenFile文件：%s \n", 1111)
 		f, err := os.OpenFile(c.LocalFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
@@ -113,4 +128,5 @@ func (nf *NodeFile) StartIncrementSync(c *FileSyncClient) {
 		log.Println("当前流连接断开，准备下一轮同步")
 		time.Sleep(500 * time.Millisecond)
 	}
+	return true
 }

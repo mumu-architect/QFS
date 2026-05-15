@@ -90,7 +90,7 @@ func (cl *Cluster) registerRpcHandlers() {
 }
 
 // TODO:发送rpc文件下载任务到从机
-func (cl *Cluster) sendTaskToSlave(sourceURL string, fileName string, routeKey string) {
+func (cl *Cluster) sendTaskToSlave(sourceURL string, fileName string, fileSize int64, routeKey string) {
 	for _, nodeInfo := range cl.ShardRpcNodeInfo {
 		if nodeInfo.NodeID == cl.LeaderID {
 			continue
@@ -110,6 +110,7 @@ func (cl *Cluster) sendTaskToSlave(sourceURL string, fileName string, routeKey s
 				LeaderURL: leaderNodeFileAddr,
 				SourceURL: sourceURL,
 				LocalPath: slavePath,
+				FileSize:  fileSize,
 			}
 			var reply fileManager.EmptyReply
 			callErr := rpcClient.Call("SyncRPCService.ReceiveSyncTask", task, &reply)
@@ -150,19 +151,18 @@ func (cl *Cluster) HandleUpload(routeKey string, fileName string, realContentTyp
 		return false, errors.New("failed to create file"), "", 0
 	}
 	defer dstFile.Close() // 必须延迟关闭
-	//TODO:发送rpc通知到当前shard的所有从机,rpc地址
-	go cl.sendTaskToSlave(savePath, fileName, routeKey)
-
 	// 5. 核心：io.Copy 流式拷贝  r.Body -> 磁盘文件
 	fileSize, err := io.Copy(dstFile, file)
 	if err != nil {
 		return false, errors.New("file write failed"), "", 0
 	}
+	//TODO:发送rpc通知到当前shard的所有从机,rpc地址
+	go cl.sendTaskToSlave(savePath, fileName, fileSize, routeKey)
 	//TODO:上传文件信息写入内存，并持久化到本地
 	//fileSize := r.ContentLength
 	routeKeyInt, err := strconv.ParseInt(routeKey, 10, 64)
 	fileInfo := &fileManager.FileInfo{
-		FIleID:     routeKeyInt,
+		FileID:     routeKeyInt,
 		FileName:   fileName,
 		FilePath:   savePath,
 		FileSize:   fileSize,

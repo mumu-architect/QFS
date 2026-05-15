@@ -42,6 +42,9 @@ go build -o myredis-cli main.go
 ##### 12. 1.上传文件实时发送rpc到从机，从机实时同步主机文件[完成并测试通过]
 ##### 12.2.文件上传，rpc通知发送roukeKey到leader,[完成并测试通过]
 ##### 12.3.文件上传，电脑重启，同步增量文件,[完成但未测试]
+#### {"fileId":"145351743520108544","fileName":"22.pdf","filePath":"./file_data/data_7074/file_20260516/22.pdf","mineType":"application/pdf","fileSize":80529272,"createTime":1778880031113,"updateTime":1778880031113,"isDeleted":false,"status":"Pending"}
+#### {"fileId":"145351743520108544","fileName":"22.pdf","filePath":"./file_data/data_7074/file_20260516/22.pdf","mineType":"application/pdf","fileSize":80529272,"createTime":1778880031113,"updateTime":1778880031113,"isDeleted":false,"status":"Pending"}
+#### origin_1.log文件第一发任务后，offset=0读取文件为空，node_incre_task_manager文件DispatchOriginToWorker方法，batchReadLimitWithOffset
 ##### 13.开发对象存储oss，存储图片字段:
 原始名称，新名称，创建时间，修改时间，图片大小，图片分辨率，MIME类型，图片格式jpg，图片内容的crc64校验图片完整性，
 

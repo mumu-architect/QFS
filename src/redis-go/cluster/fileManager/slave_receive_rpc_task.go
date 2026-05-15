@@ -22,9 +22,9 @@ func (srs *SyncRPCService) ReceiveSyncTask(task *SyncTask, empty *struct{}) erro
 		fmt.Println("【从机】任务入队失败")
 	}
 
-	// 同步执行一次（强制保证测试能看到文件）
-	//go DoRemoteFileSync(task)
-	go srs.NodeFile.DoRemoteHttpFileSync(task)
+	//// 同步执行一次（强制保证测试能看到文件）
+	////go DoRemoteFileSync(task)
+	//go srs.NodeFile.DoRemoteHttpFileSync(task)
 
 	return nil
 }

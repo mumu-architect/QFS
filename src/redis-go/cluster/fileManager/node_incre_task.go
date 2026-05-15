@@ -6,6 +6,7 @@ type IncrementSyncTask struct {
 	FileName   string `json:"fileName"`
 	FilePath   string `json:"filePath"`
 	MineType   string `json:"mineType"`
+	FileSize   int64  `json:"fileSize"`
 	CreateTime int64  `json:"createTime"`
 	UpdateTime int64  `json:"updateTime"`
 	IsDeleted  bool   `json:"isDeleted"`

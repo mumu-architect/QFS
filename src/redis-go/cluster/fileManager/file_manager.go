@@ -33,6 +33,7 @@ type NodeFile struct {
 	ShardIncrementNodeInfo map[int]*Node `json:"shardIncrementNodeInfo"`
 	LeaderAddr             string        `json:"leaderAddr"`
 	LocalRoot              string        `json:"localRoot"`
+	IncrementFileManager   *IncrementFileManager
 	httpClient             *http.Client
 	mu                     sync.RWMutex
 }
@@ -40,7 +41,7 @@ type NodeFile struct {
 const FileDataDir = "./file_data"
 
 // NewNodeFile  New 创建文件管理器
-func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort int, filePeers string, incrementFilePort int, incrementFilePeers string) *NodeFile {
+func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort int, filePeers string, incrementFilePort int, incrementFilePeers string, incrementFileManager *IncrementFileManager) *NodeFile {
 	// 拼接目录 log_yyyyMMdd
 	// 传入 leaderAddr 格式 ip:port，自动解析端口、自动生成 ./data-端口 本地目录
 	//dir := fmt.Sprintf(FileDataDir+"/file_%d/log_%s", filePort, time.Now().Format("20060102"))
@@ -58,7 +59,8 @@ func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort 
 	shardIncrementNodeInfo := stringToMapNodes(shardId, incrementFilePeers)
 
 	localRoot := FileDataDir + fmt.Sprintf("/data_%d", filePort)
-	fm := &NodeFile{
+	nf := &NodeFile{
+		IncrementFileManager:   incrementFileManager,
 		ShardId:                shardId,
 		NodeId:                 nodeId,
 		FileIp:                 fileIp,
@@ -72,12 +74,12 @@ func NewNodeFile(shardId int, nodeId int, leaderId int, fileIp string, filePort 
 		httpClient:             client,
 	}
 	// 初始化地址+目录
-	fm.ChangeMasterAddr(leaderId)
-	//TODO:启动文件同步Http服务
-	//go fm.startFileHttpServer()
+	nf.ChangeMasterAddr(leaderId)
+	//TODO:启动增量文件同步Http服务
+	go nf.startIncrementFileHttpServer()
 	//TODO:从机收到主机的rpc任务，实时拉去主机的文件
-	go fm.StartFilePullServer()
-	return fm
+	go nf.StartFilePullServer()
+	return nf
 }
 
 // TODO:根据leaderId获取主节点ip,port

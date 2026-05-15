@@ -165,8 +165,7 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcP
 	if err != nil {
 		fmt.Printf("RestartBatchLoadLog:%v\n", err)
 	}
-	//TODO:拉去主节点的增量数据，并写入内存
-	go cl.PullSyncLoop()
+
 	//TODO: 注册所有助手方法
 	cl.registerAllHandlers()
 
@@ -174,6 +173,33 @@ func NewCluster(shardID int, leaderID int, nodeID int, ip string, port int, rpcP
 	go cl.StartRPCServer()
 	//TODO: 启动http服务器
 	go cl.startHTTPAPI()
+
+	//TODO:增量文件同步,先拉取一次增量日志文件的边界，根据边界同步增量的图片文件
+	go func() {
+		initOnce := false
+		tt := time.NewTicker(500 * time.Millisecond)
+		for range tt.C {
+			if !initOnce {
+				//shardNodeLeaderID, err := nodeMeta.GetShardNodeLeaderID(nh, nodeMeta, shardID)
+				//if err != nil {
+				//	fmt.Printf("111====nodeMeta.GetShardNodeLeaderID error:%v \n", err)
+				//}
+				//cl.DynamicallyModifyClusterNodeLeaderID(shardNodeLeaderID)
+				incrementLogMap, err := cl.PullLeaderIncrementLogOnce()
+				fmt.Printf("PullLeaderIncrementLogOnce:%v\n", incrementLogMap)
+				if err == nil {
+					initOnce = true
+				} else {
+					continue
+				}
+				go cl.PullLeaderIncrementLog(0, incrementLogMap.IncrementFileMaxIdx)
+				//TODO:拉去主节点实时的的增量数据，并写入内存
+				go cl.PullSyncLoop(incrementLogMap.IncrementFileMaxIdx)
+			}
+		}
+
+	}()
+
 	return cl
 }
 

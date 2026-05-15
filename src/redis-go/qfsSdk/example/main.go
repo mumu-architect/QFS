@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -19,14 +20,16 @@ func main() {
 	})
 
 	// 2. 读取测试文件
-	file, err := os.Open("./22.pdf")
+	fileName := "22.pdf"
+	filePath := fmt.Sprintf("./%s", fileName)
+	file, err := os.Open(filePath)
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
 	// 3. 直接调用SDK上传
-	resp, err := qfsSdk.Upload(file, "22.pdf")
+	resp, err := qfsSdk.Upload(file, fileName)
 	if err != nil {
 		panic(err)
 	}

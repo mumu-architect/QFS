@@ -27,9 +27,10 @@ type LogEntry struct {
 }
 
 type SyncResponse struct {
-	DataMap    map[uint64][]byte `json:"dataMap"`
-	HasMore    bool              `json:"hasMore"`
-	DataNumber uint64            `json:"dataNumber"`
+	DataMap             map[uint64][]byte `json:"dataMap"`
+	HasMore             bool              `json:"hasMore"`
+	DataNumber          uint64            `json:"dataNumber"`
+	IncrementFileMaxIdx uint64            `json:"incrementFileMaxIdx"`
 }
 type NodeLog struct {
 	ShardId       int           `json:"shardId"`
@@ -97,15 +98,40 @@ func (nl *NodeLog) WriteLocalLog(index uint64, data []byte) error {
 }
 
 // 模拟RPC 请求主节点增量日志
-func (nl *NodeLog) ReqMasterLog() (*SyncResponse, error) {
+func (nl *NodeLog) ReqMasterLog(logIndex uint64) (*SyncResponse, error) {
 	localMaxLogIndex, _ := nl.LocalLog.LastIndex()
+	realMaxLogIndex := max(localMaxLogIndex, logIndex)
 	//TODO:同步主节点的增量数据到从节点
 	leaderNode := nl.ShardNodeInfo[nl.LeaderId]
 	if leaderNode == nil {
 		fmt.Printf("同步日志失败：未找到leader节点，leaderId=%d，节点map长度=%d\n", nl.LeaderId, len(nl.ShardNodeInfo))
 		return nil, errors.New("同步日志失败")
 	}
-	url := fmt.Sprintf("http://%s:%d/syncLog?lastIndex=%d", leaderNode.IP, leaderNode.Port, localMaxLogIndex)
+	url := fmt.Sprintf("http://%s:%d/syncLog?lastIndex=%d", leaderNode.IP, leaderNode.Port, realMaxLogIndex)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var res *SyncResponse
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// 模拟RPC 请求主节点增量日志,增量文件
+func (nl *NodeLog) ReqMasterIncrementLog(logIndex uint64, maxIndex uint64) (*SyncResponse, error) {
+	localMaxLogIndex, _ := nl.LocalLog.LastIndex()
+	realMaxLogIndex := max(localMaxLogIndex, logIndex)
+	//TODO:同步主节点的增量数据到从节点
+	leaderNode := nl.ShardNodeInfo[nl.LeaderId]
+	if leaderNode == nil {
+		fmt.Printf("同步日志失败：未找到leader节点，leaderId=%d，节点map长度=%d\n", nl.LeaderId, len(nl.ShardNodeInfo))
+		return nil, errors.New("同步日志失败")
+	}
+	url := fmt.Sprintf("http://%s:%d/IncrementSyncLog?lastIndex=%d&maxIndex=%d", leaderNode.IP, leaderNode.Port, realMaxLogIndex, maxIndex)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err

@@ -70,12 +70,12 @@ func printUsage() {
 }
 
 func main() {
-	// go run main.go --shardID 128 --id 1 --shardIDS "128,129" --ip 127.0.0.1 --port 9001 --peers "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6061 --rpcPeers "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19001  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8081 --logPeers "1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083" --filePort 7071 --filePeers "1=127.0.0.1:7071,2=127.0.0.1:7072,3=127.0.0.1:7073"
-	// go run main.go --shardID 128 --id 2 --shardIDS "128,129" --ip 127.0.0.1 --port 9002 --peers "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6062 --rpcPeers "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19002  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8082 --logPeers "1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083" --filePort 7072 --filePeers "1=127.0.0.1:7071,2=127.0.0.1:7072,3=127.0.0.1:7073"
-	// go run main.go --shardID 128 --id 3 --shardIDS "128,129" --ip 127.0.0.1 --port 9003 --peers "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6063 --rpcPeers "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19003  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8083 --logPeers "1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083" --filePort 7073 --filePeers "1=127.0.0.1:7071,2=127.0.0.1:7072,3=127.0.0.1:7073"
-	// go run main.go --shardID 129 --id 4 --shardIDS "128,129" --ip 127.0.0.1 --port 9004 --peers "4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6064 --rpcPeers "4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19004  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8084 --logPeers "4=127.0.0.1:8084,5=127.0.0.1:8085,6=127.0.0.1:8086" --filePort 7074 --filePeers "4=127.0.0.1:7074,5=127.0.0.1:7075,6=127.0.0.1:7076"
-	// go run main.go --shardID 129 --id 5 --shardIDS "128,129" --ip 127.0.0.1 --port 9005 --peers "4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6065 --rpcPeers "4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19005  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8085 --logPeers "4=127.0.0.1:8084,5=127.0.0.1:8085,6=127.0.0.1:8086" --filePort 7075 --filePeers "4=127.0.0.1:7074,5=127.0.0.1:7075,6=127.0.0.1:7076"
-	// go run main.go --shardID 129 --id 6 --shardIDS "128,129" --ip 127.0.0.1 --port 9006 --peers "4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6066 --rpcPeers "4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19006  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8086 --logPeers "4=127.0.0.1:8084,5=127.0.0.1:8085,6=127.0.0.1:8086" --filePort 7076 --filePeers "4=127.0.0.1:7074,5=127.0.0.1:7075,6=127.0.0.1:7076"
+	// go run main.go --shardID 128 --id 1 --shardIDS "128,129" --ip 127.0.0.1 --port 9001 --peers "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6061 --rpcPeers "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19001  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8081 --logPeers "1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083" --filePort 7071 --filePeers "1=127.0.0.1:7071,2=127.0.0.1:7072,3=127.0.0.1:7073" --incrementFilePort 5051 --incrementFilePeers "1=127.0.0.1:5051,2=127.0.0.1:5052,3=127.0.0.1:5053"
+	// go run main.go --shardID 128 --id 2 --shardIDS "128,129" --ip 127.0.0.1 --port 9002 --peers "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6062 --rpcPeers "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19002  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8082 --logPeers "1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083" --filePort 7072 --filePeers "1=127.0.0.1:7071,2=127.0.0.1:7072,3=127.0.0.1:7073" --incrementFilePort 5052 --incrementFilePeers "1=127.0.0.1:5051,2=127.0.0.1:5052,3=127.0.0.1:5053"
+	// go run main.go --shardID 128 --id 3 --shardIDS "128,129" --ip 127.0.0.1 --port 9003 --peers "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6063 --rpcPeers "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19003  --raftPeers "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8083 --logPeers "1=127.0.0.1:8081,2=127.0.0.1:8082,3=127.0.0.1:8083" --filePort 7073 --filePeers "1=127.0.0.1:7071,2=127.0.0.1:7072,3=127.0.0.1:7073" --incrementFilePort 5053 --incrementFilePeers "1=127.0.0.1:5051,2=127.0.0.1:5052,3=127.0.0.1:5053"
+	// go run main.go --shardID 129 --id 4 --shardIDS "128,129" --ip 127.0.0.1 --port 9004 --peers "4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6064 --rpcPeers "4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19004  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8084 --logPeers "4=127.0.0.1:8084,5=127.0.0.1:8085,6=127.0.0.1:8086" --filePort 7074 --filePeers "4=127.0.0.1:7074,5=127.0.0.1:7075,6=127.0.0.1:7076" --incrementFilePort 5054 --incrementFilePeers "4=127.0.0.1:5054,5=127.0.0.1:5055,6=127.0.0.1:5056"
+	// go run main.go --shardID 129 --id 5 --shardIDS "128,129" --ip 127.0.0.1 --port 9005 --peers "4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6065 --rpcPeers "4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19005  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8085 --logPeers "4=127.0.0.1:8084,5=127.0.0.1:8085,6=127.0.0.1:8086" --filePort 7075 --filePeers "4=127.0.0.1:7074,5=127.0.0.1:7075,6=127.0.0.1:7076" --incrementFilePort 5055 --incrementFilePeers "4=127.0.0.1:5054,5=127.0.0.1:5055,6=127.0.0.1:5056"
+	// go run main.go --shardID 129 --id 6 --shardIDS "128,129" --ip 127.0.0.1 --port 9006 --peers "4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --nodeInfo "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003,4=127.0.0.1:9004,5=127.0.0.1:9005,6=127.0.0.1:9006" --rpcPort 6066 --rpcPeers "4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --rpcNodeInfo "1=127.0.0.1:6061,2=127.0.0.1:6062,3=127.0.0.1:6063,4=127.0.0.1:6064,5=127.0.0.1:6065,6=127.0.0.1:6066" --raftPort 19006  --raftPeers "4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --raftNodeInfo "1=127.0.0.1:19001,2=127.0.0.1:19002,3=127.0.0.1:19003,4=127.0.0.1:19004,5=127.0.0.1:19005,6=127.0.0.1:19006" --logPort 8086 --logPeers "4=127.0.0.1:8084,5=127.0.0.1:8085,6=127.0.0.1:8086" --filePort 7076 --filePeers "4=127.0.0.1:7074,5=127.0.0.1:7075,6=127.0.0.1:7076" --incrementFilePort 5056 --incrementFilePeers "4=127.0.0.1:5054,5=127.0.0.1:5055,6=127.0.0.1:5056"
 	//
 	/*
 	 */
@@ -155,7 +155,11 @@ func main() {
 		//TODO:本地log管理
 		nl, _ := logManager.NewNodeLog(node.ShardID, leaderId, node.NodeID, node.IP, node.LogPort, node.LogPeers)
 		//TODO:本地文件管理
-		nf := fileManager.NewNodeFile(node.ShardID, leaderId, node.NodeID, node.IP, node.FilePort, node.FilePeers, node.IncrementFilePort, node.IncrementFilePeers)
+		ifm, _ := fileManager.NewIncrementFileManager(node.IncrementFilePort)
+		nf := fileManager.NewNodeFile(node.ShardID, leaderId, node.NodeID, node.IP, node.FilePort, node.FilePeers, node.IncrementFilePort, node.IncrementFilePeers, ifm)
+		//TODO:拉去增量的日志中的文件，未测试
+		_, _ = fileManager.NewIncrementTaskManager(nf, fileManager.DefaultIncrementWorkerNum, fileManager.DefaultIncrementQueueCap)
+
 		//TODO:集群管理
 		cl := cluster.NewCluster(node.ShardID, leaderId, node.NodeID, node.IP, node.Port, node.RpcPort, node.RpcPeers, node.RpcNodeInfo, node.Peers, node.NodeInfo, nodeSlotMetas, nh, nodeMeta, nl, nf)
 
@@ -163,12 +167,12 @@ func main() {
 
 		//11524  5
 		//TODO:根据槽取shardID,再根据shardID 动态取leaderID
-		keySolt := 1232
-		leaderId2 := dragonboatRaft.GetLeaderID(nh, nodeMeta, keySolt)
-		fmt.Printf("4444====data: %v \n", leaderId2)
-		keySolt = 16354
-		leaderId2 = dragonboatRaft.GetLeaderID(nh, nodeMeta, keySolt)
-		fmt.Printf("4444====data: %v \n", leaderId2)
+		//keySolt := 1232
+		//leaderId2 := dragonboatRaft.GetLeaderID(nh, nodeMeta, keySolt)
+		//fmt.Printf("4444====data: %v \n", leaderId2)
+		//keySolt = 16354
+		//leaderId2 = dragonboatRaft.GetLeaderID(nh, nodeMeta, keySolt)
+		//fmt.Printf("4444====data: %v \n", leaderId2)
 
 		//TODO:重启分批加载本地log数据到内存
 		err = cl.RestartBatchLoadLog()
@@ -176,7 +180,7 @@ func main() {
 			fmt.Printf("RestartBatchLoadLog:%v\n", err)
 		}
 		//TODO:拉去主节点的增量数据，并写入内存
-		go cl.PullSyncLoop()
+		//go cl.PullSyncLoop()
 
 		//TODO:测试上传，leader的文件信息写入从机的log
 
@@ -198,102 +202,7 @@ func main() {
 				cl.DynamicallyModifyClusterNodeLeaderID(shardNodeLeaderID)
 			}
 		}()
-		//go func() {
-		//	tt := time.NewTicker(3 * time.Second)
-		//	for range tt.C {
-		//		//TODO:动态修改cluster中所有的leaderID
-		//		shardNodeLeaderID, err := nodeMeta.GetShardNodeLeaderID(nh, nodeMeta, node.ShardID)
-		//		if err != nil {
-		//			fmt.Printf("333====nodeMeta.GetShardNodeLeaderID error:%v \n", err)
-		//		}
-		//		fmt.Printf("333====nodeMeta.GetShardNodeLeaderID data:%v \n", shardNodeLeaderID)
-		//		if shardNodeLeaderID == nil {
-		//			continue
-		//		}
-		//		if nf.ShardId == node.ShardID {
-		//			nf.LeaderId = shardNodeLeaderID.LeaderID
-		//		}
-		//	}
-		//}()
-		//go func() {
-		//	tt := time.NewTicker(3 * time.Second)
-		//	for range tt.C {
-		//		//TODO:动态修改cluster中所有的leaderID
-		//		shardNodeLeaderID, err := nodeMeta.GetShardNodeLeaderID(nh, nodeMeta, node.ShardID)
-		//		if err != nil {
-		//			fmt.Printf("222====nodeMeta.GetShardNodeLeaderID error:%v \n", err)
-		//		}
-		//		fmt.Printf("222====nodeMeta.GetShardNodeLeaderID data:%v \n", shardNodeLeaderID)
-		//		if shardNodeLeaderID == nil {
-		//			continue
-		//		}
-		//		if nl.ShardId == node.ShardID {
-		//			nl.LeaderId = shardNodeLeaderID.LeaderID
-		//		}
-		//	}
-		//}()
-		//go func() {
-		//	tt := time.NewTicker(3 * time.Second)
-		//	for range tt.C {
-		//		//TODO:动态修改cluster中所有的leaderID
-		//		shardNodeLeaderID, err := nodeMeta.GetShardNodeLeaderID(nh, nodeMeta, node.ShardID)
-		//		if err != nil {
-		//			fmt.Printf("222====nodeMeta.GetShardNodeLeaderID error:%v \n", err)
-		//		}
-		//		fmt.Printf("222====nodeMeta.GetShardNodeLeaderID data:%v \n", shardNodeLeaderID)
-		//		if shardNodeLeaderID == nil {
-		//			continue
-		//		}
-		//		if cl.ShardID == node.ShardID {
-		//			cl.LeaderID = shardNodeLeaderID.LeaderID
-		//			cl.LocalNode.LeaderID = shardNodeLeaderID.LeaderID
-		//		}
-		//
-		//	}
-		//}()
-
 	}()
-
-	//根据槽获取leaderID
-	//dragonboatRaft.GetLeaderID(nh, nodeMeta, 123)
-
-	/*
-
-		//TODO:重点，多个对象调用，global在对象内通用
-
-		//TODO:集合真实数据存储cluster
-		// 初始化数据目录（在storage.go中实现）
-		cluster.InitDataDir()
-		//TODO:leaderID从9999shard中获取  nodeMeta  GetShardNodeLeaderID   | qfs_meta:9999:129:ShardNodeLeaderID, result: {"shardID":129,"leaderID":4}
-		//TODO:槽信息从9999shard中获取  nodeMeta GetSolt |  qfs_meta:9999:NodeSlotMetas, result: {"nodeSlotMetas":{"0":{"shardID":128,"slots":{"0":{"StartSlotID":0,"EndSlotID":8191}}},"1":{"shardID":129,"slots":{"0":{"StartSlotID":8192,"EndSlotID":16383}}}}}
-		//node.ShardID, node.NodeID, node.IP, node.Port
-		go cluster.NewCluster(128, 1, 1, "127.0.0.1", 9001, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
-		go cluster.NewCluster(128, 1, 2, "127.0.0.1", 9002, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
-		go cluster.NewCluster(128, 1, 3, "127.0.0.1", 9003, "1=127.0.0.1:9001,2=127.0.0.1:9002,3=127.0.0.1:9003", "127.0.0.1:9001")
-		//go cluster.NewCluster(128, 2, "127.0.0.1", 9002, 1, ":9002", cluster.Master, "127.0.0.1:9001")
-		//go cluster.NewCluster(128, 3, "127.0.0.1", 9003, 1, ":9003", cluster.Master, "127.0.0.1:9001")
-
-		//LeaderID赋值和修改
-		//go func() {
-		//	tt := time.NewTicker(10 * time.Second)
-		//	for range tt.C {
-		//		fmt.Printf("11=================leaderId=%v", 1)
-		//		cl.LocalNode.LeaderID = 1
-		//		cl.LeaderID = 1
-		//		cl1.LocalNode.LeaderID = 1
-		//		cl2.LocalNode.LeaderID = 1
-		//	}
-		//}()
-		// 保持主线程运行
-		log.Println("=== 主线程开始运行 ===")
-		for i := 0; i < 100; i++ {
-			log.Printf("主线程运行中，第 %d 秒", i)
-			time.Sleep(1 * time.Second)
-		}
-		log.Println("=== 主线程运行结束 ===")
-
-		/*
-	*/
 
 	//TODO:测试数据写入
 

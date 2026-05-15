@@ -17,6 +17,7 @@ type FileSyncClient struct {
 	LeaderURL  string // 缓存的旧Leader地址
 	RemoteFile string
 	LocalFile  string
+	FileSize   int64
 	retryTimes int // 已重试次数
 	maxRetry   int // 最大重试阈值 3次
 }
@@ -45,6 +46,7 @@ func (nf *NodeFile) DoRemoteHttpFileSync(task *SyncTask) {
 		LeaderURL:  task.LeaderURL,
 		RemoteFile: task.SourceURL,
 		LocalFile:  task.LocalPath,
+		FileSize:   task.FileSize,
 	}
 	nf.StartSync(fsc)
 	return
@@ -59,7 +61,7 @@ func (nf *NodeFile) getLocalOffset(fsc *FileSyncClient) int64 {
 	return info.Size()
 }
 
-// 在这里模拟：调用你Dragonboat接口获取最新Leader地址
+// GetCurrentLeader 在这里模拟：调用你Dragonboat接口获取最新Leader地址
 func (nf *NodeFile) GetCurrentLeader() (string, int) {
 	// 这里替换成你实际读取Dragonboat暴露的Leader函数
 	leaderIp := nf.ShardNodeInfo[nf.LeaderId].IP
@@ -67,7 +69,7 @@ func (nf *NodeFile) GetCurrentLeader() (string, int) {
 	return leaderIp, leaderPort
 }
 
-func (nf *NodeFile) StartSync(c *FileSyncClient) {
+func (nf *NodeFile) StartSync(c *FileSyncClient) bool {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		DialContext: (&net.Dialer{
@@ -88,10 +90,14 @@ func (nf *NodeFile) StartSync(c *FileSyncClient) {
 
 	for {
 		offset := nf.getLocalOffset(c)
+		fmt.Printf("offset:%d===%d \n", offset, c.FileSize)
+		if offset >= c.FileSize {
+			return true
+		}
 		// 先用当前缓存的MasterURL请求
 		reqURL := fmt.Sprintf("%s/SlavePullFile?file=%s&offset=%d", c.LeaderURL, c.RemoteFile, offset)
 
-		log.Printf("使用旧地址同步,LeaderURL:%s, file=%s ,retry:%d, offset:%d", c.LeaderURL, c.RemoteFile, c.retryTimes, offset)
+		log.Printf("使用旧地址同步StartSync,LeaderURL:%s, file=%s ,retry:%d, offset:%d", c.LeaderURL, c.RemoteFile, c.retryTimes, offset)
 
 		resp, err := client.Get(reqURL)
 		if err != nil {
@@ -118,7 +124,7 @@ func (nf *NodeFile) StartSync(c *FileSyncClient) {
 		err1 := os.MkdirAll(filepath.Dir(c.LocalFile), 0755)
 		if err1 != nil {
 			fmt.Printf("文件目录创建失败：%s \n", err1)
-			return
+			return false
 		}
 		fmt.Printf("OpenFile文件：%s \n", 1111)
 		f, err := os.OpenFile(c.LocalFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
@@ -136,4 +142,5 @@ func (nf *NodeFile) StartSync(c *FileSyncClient) {
 		log.Println("当前流连接断开，准备下一轮同步")
 		time.Sleep(500 * time.Millisecond)
 	}
+	return true
 }
